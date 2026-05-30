@@ -99,13 +99,29 @@ Non-`@cncservices.net` signups are blocked by database triggers and RLS.
 1. Push repo to GitHub
 2. Import project in [Vercel](https://vercel.com)
 3. Add all environment variables from `.env.local.example`
-4. Deploy — `vercel.json` configures cron jobs:
+4. Deploy — cron jobs depend on your Vercel plan:
+
+**Hobby (free)** — `vercel.json` runs each job **once per day** (UTC):
 
 | Job | Schedule | Route |
 |-----|----------|-------|
-| Sheet sync | Every 30 min | `/api/cron/sync-sheets` |
-| Renewal send | Every 5 min | `/api/cron/send-renewals` |
-| Marketing send | Every 10 min | `/api/cron/send-marketing` |
+| Sheet sync | Daily 05:00 UTC | `/api/cron/sync-sheets` |
+| Renewal send | Daily 06:00 UTC | `/api/cron/send-renewals` |
+| Marketing send | Daily 07:00 UTC | `/api/cron/send-marketing` |
+
+Use **Settings** in the app for manual sync/send between daily runs.
+
+**Pro** — copy `vercel.pro.json` over `vercel.json` for production frequency:
+
+| Job | Schedule |
+|-----|----------|
+| Sheet sync | Every 30 min |
+| Renewal send | Every 5 min |
+| Marketing send | Every 10 min |
+
+```bash
+cp vercel.pro.json vercel.json
+```
 
 5. Set `CRON_SECRET` in Vercel env — Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`
 6. After deploy, run **Sync Google Sheets** from Settings to populate certificates
