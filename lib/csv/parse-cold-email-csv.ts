@@ -56,6 +56,58 @@ function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+function looksLikeTimestamp(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}[ T]/.test(value.trim());
+}
+
+function looksLikeVariant(value: string): boolean {
+  return /^variant\s*\d+/i.test(value.trim());
+}
+
+function inferColumnsFromDataRow(
+  cells: string[]
+): { emailIndex: number; companyIndex: number; elvIndex: number } | null {
+  let emailIndex = -1;
+  for (let i = 0; i < cells.length; i += 1) {
+    if (isValidEmail(cells[i].trim().toLowerCase())) {
+      emailIndex = i;
+      break;
+    }
+  }
+
+  if (emailIndex < 0) {
+    return null;
+  }
+
+  if (emailIndex + 1 < cells.length) {
+    const next = cells[emailIndex + 1].trim();
+    if (
+      next &&
+      !isValidEmail(next.toLowerCase()) &&
+      !looksLikeTimestamp(next) &&
+      !looksLikeVariant(next)
+    ) {
+      return { emailIndex, companyIndex: emailIndex + 1, elvIndex: -1 };
+    }
+  }
+
+  for (let i = 0; i < cells.length; i += 1) {
+    if (i === emailIndex) continue;
+    const val = cells[i].trim();
+    if (
+      !val ||
+      isValidEmail(val.toLowerCase()) ||
+      looksLikeTimestamp(val) ||
+      looksLikeVariant(val)
+    ) {
+      continue;
+    }
+    return { emailIndex, companyIndex: i, elvIndex: -1 };
+  }
+
+  return null;
+}
+
 export function parseColdEmailCsv(
   content: string,
   options: { verifiedOnly?: boolean } = {}
@@ -65,35 +117,53 @@ export function parseColdEmailCsv(
     .map((line) => line.trim())
     .filter(Boolean);
 
-  if (lines.length < 2) {
-    return { rows: [], skipped: 0, errors: ["CSV must include a header row and at least one data row."] };
+  if (lines.length < 1) {
+    return {
+      rows: [],
+      skipped: 0,
+      errors: ["CSV must include at least one data row."],
+    };
   }
 
-  const headers = parseCsvLine(lines[0]);
-  const emailIndex = findColumnIndex(headers, [
+  const firstLineCells = parseCsvLine(lines[0]);
+  let emailIndex = findColumnIndex(firstLineCells, [
     "email",
     "emails",
     "e-mail",
     "recipient_email",
     "recipient email",
   ]);
-  const companyIndex = findColumnIndex(headers, [
+  let companyIndex = findColumnIndex(firstLineCells, [
     "company",
     "company_name",
     "company name",
   ]);
-  const elvIndex = findColumnIndex(headers, [
+  let elvIndex = findColumnIndex(firstLineCells, [
     "elv result",
     "email status",
     "verification",
     "status",
   ]);
+  let startRow = 1;
+
+  // Headerless export e.g. send_logs: timestamp,email,company,variant
+  if (emailIndex < 0 || companyIndex < 0) {
+    const inferred = inferColumnsFromDataRow(firstLineCells);
+    if (inferred) {
+      emailIndex = inferred.emailIndex;
+      companyIndex = inferred.companyIndex;
+      elvIndex = inferred.elvIndex;
+      startRow = 0;
+    }
+  }
 
   if (emailIndex < 0) {
     return {
       rows: [],
       skipped: 0,
-      errors: ["CSV must include an email column (email, emails, or E-MAIL)."],
+      errors: [
+        "CSV must include an email column (header row with email / E-MAIL, or headerless rows like timestamp,email,company).",
+      ],
     };
   }
 
@@ -110,7 +180,7 @@ export function parseColdEmailCsv(
   let skipped = 0;
   const errors: string[] = [];
 
-  for (let i = 1; i < lines.length; i += 1) {
+  for (let i = startRow; i < lines.length; i += 1) {
     const cells = parseCsvLine(lines[i]);
     const email = (cells[emailIndex] ?? "").trim().toLowerCase();
     const company = (cells[companyIndex] ?? "").trim();

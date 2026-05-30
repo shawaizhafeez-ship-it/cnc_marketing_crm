@@ -71,8 +71,9 @@ export function ColdEmailUploadForm() {
           <CardTitle>Upload marketing list</CardTitle>
           <CardDescription>
             CSV must include <code className="text-xs">email</code> and{" "}
-            <code className="text-xs">company</code> columns. Optional{" "}
-            <code className="text-xs">ELV Result</code> column for verified-only
+            <code className="text-xs">company</code> columns, or headerless rows like{" "}
+            <code className="text-xs">timestamp,email,company,variant</code> (send logs export).
+            Optional <code className="text-xs">ELV Result</code> column for verified-only
             filtering.
           </CardDescription>
         </CardHeader>

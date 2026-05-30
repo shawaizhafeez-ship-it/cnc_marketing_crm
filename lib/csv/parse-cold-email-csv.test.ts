@@ -41,6 +41,22 @@ dup@example.com,Second`;
     expect(result.rows).toHaveLength(1);
     expect(result.skipped).toBe(1);
   });
+
+  it("parses headerless send log CSV (timestamp,email,company,variant)", () => {
+    const csv = `2026-02-03 02:04:14.360362,wavnosports@gmail.com,WAVNO SPORTS,variant 4
+2026-02-03 02:06:48.737414,wawehninternational@gmail.com,WAWEHN INTERNATIONAL,variant 4`;
+
+    const result = parseColdEmailCsv(csv);
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0]).toMatchObject({
+      email: "wavnosports@gmail.com",
+      company: "WAVNO SPORTS",
+    });
+    expect(result.rows[1]).toMatchObject({
+      email: "wawehninternational@gmail.com",
+      company: "WAWEHN INTERNATIONAL",
+    });
+  });
 });
 
 describe("renderColdEmailHtml", () => {
