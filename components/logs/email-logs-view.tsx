@@ -39,6 +39,7 @@ const TYPE_TABS = [
   { value: "all", label: "All" },
   { value: "renewal", label: "Renewal" },
   { value: "marketing", label: "Marketing" },
+  { value: "cold", label: "Cold" },
   { value: "manual", label: "Manual" },
 ] as const;
 
@@ -79,6 +80,9 @@ function campaignHref(log: EmailLogEntry) {
   }
   if (log.email_type === "marketing") {
     return `/marketing/campaigns/${log.campaign_id}`;
+  }
+  if (log.email_type === "cold") {
+    return `/marketing/cold-email/${log.campaign_id}`;
   }
   return null;
 }

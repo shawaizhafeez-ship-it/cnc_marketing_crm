@@ -1,5 +1,5 @@
 /**
- * Generated from supabase/migrations (001–014).
+ * Generated from supabase/migrations (001–015).
  * Regenerate after schema changes:
  *   supabase gen types typescript --linked > supabase/database.types.ts
  */
@@ -80,6 +80,106 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      cold_email_batches: {
+        Row: {
+          id: string;
+          name: string;
+          subject: string;
+          html_template: string;
+          status: Database["public"]["Enums"]["campaign_status"];
+          total_recipients: number;
+          emails_sent: number;
+          emails_failed: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+          started_at: string | null;
+          completed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          subject?: string;
+          html_template: string;
+          status?: Database["public"]["Enums"]["campaign_status"];
+          total_recipients?: number;
+          emails_sent?: number;
+          emails_failed?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          started_at?: string | null;
+          completed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          subject?: string;
+          html_template?: string;
+          status?: Database["public"]["Enums"]["campaign_status"];
+          total_recipients?: number;
+          emails_sent?: number;
+          emails_failed?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          started_at?: string | null;
+          completed_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cold_email_batches_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      cold_email_recipients: {
+        Row: {
+          id: string;
+          batch_id: string;
+          recipient_email: string;
+          company_name: string;
+          status: Database["public"]["Enums"]["email_status"];
+          sent_at: string | null;
+          error_message: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          batch_id: string;
+          recipient_email: string;
+          company_name: string;
+          status?: Database["public"]["Enums"]["email_status"];
+          sent_at?: string | null;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          batch_id?: string;
+          recipient_email?: string;
+          company_name?: string;
+          status?: Database["public"]["Enums"]["email_status"];
+          sent_at?: string | null;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cold_email_recipients_batch_id_fkey";
+            columns: ["batch_id"];
+            isOneToOne: false;
+            referencedRelation: "cold_email_batches";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       daily_send_counters: {
         Row: {
@@ -713,7 +813,7 @@ export type Database = {
         | "announcements"
         | "renewals"
         | "custom";
-      touchpoint_type: "renewal" | "marketing" | "manual";
+      touchpoint_type: "renewal" | "marketing" | "manual" | "cold";
       user_role: "admin" | "user";
     };
     CompositeTypes: Record<string, never>;

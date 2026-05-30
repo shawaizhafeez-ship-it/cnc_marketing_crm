@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/send-marketing",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/send-cold-email",
+      "schedule": "0 8 * * *"
     }
   ]
 }

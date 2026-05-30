@@ -75,9 +75,17 @@ async function attachCampaignNames(
         .map((log) => log.campaign_id as string)
     )
   );
+  const coldIds = Array.from(
+    new Set(
+      logs
+        .filter((log) => log.email_type === "cold" && log.campaign_id)
+        .map((log) => log.campaign_id as string)
+    )
+  );
 
   const renewalNames = new Map<string, string>();
   const marketingNames = new Map<string, string>();
+  const coldNames = new Map<string, string>();
 
   if (renewalIds.length > 0) {
     const { data } = await supabase
@@ -99,6 +107,16 @@ async function attachCampaignNames(
     }
   }
 
+  if (coldIds.length > 0) {
+    const { data } = await supabase
+      .from("cold_email_batches")
+      .select("id, name")
+      .in("id", coldIds);
+    for (const row of data ?? []) {
+      coldNames.set(row.id, row.name);
+    }
+  }
+
   return logs.map((log) => ({
     ...log,
     campaign_name: log.campaign_id
@@ -106,7 +124,9 @@ async function attachCampaignNames(
         ? renewalNames.get(log.campaign_id) ?? null
         : log.email_type === "marketing"
           ? marketingNames.get(log.campaign_id) ?? null
-          : null
+          : log.email_type === "cold"
+            ? coldNames.get(log.campaign_id) ?? null
+            : null
       : null,
   }));
 }

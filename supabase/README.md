@@ -18,6 +18,7 @@
 | 012 | `20260530100012_row_level_security.sql` | RLS policies |
 | 013 | `20260530100013_auth_domain_enforcement.sql` | Auth domain enforcement |
 | 014 | `20260530100014_add_manual_email_type.sql` | Manual email type enum |
+| 015 | `20260530100015_cold_email_batches.sql` | Cold email CSV batches + recipients |
 
 ---
 

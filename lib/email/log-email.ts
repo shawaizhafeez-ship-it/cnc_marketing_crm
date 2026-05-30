@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type LogEmailParams = {
-  emailType: "renewal" | "marketing" | "manual";
+  emailType: "renewal" | "marketing" | "manual" | "cold";
   recipientEmail: string;
   companyName: string;
   subject: string;

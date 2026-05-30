@@ -3,7 +3,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
-  DOMAIN_ERROR_MESSAGE,
   normalizeEmail,
   validateEmailForAuth,
 } from "@/lib/auth/validation";
@@ -75,12 +74,13 @@ export async function signUpWithEmail(
   }
 
   const supabase = await createClient();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: fullName ? { full_name: fullName } : undefined,
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
+      emailRedirectTo: `${appUrl}/auth/callback?next=/dashboard`,
     },
   });
 
@@ -118,5 +118,3 @@ export async function getSessionUser() {
 
   return user;
 }
-
-export { DOMAIN_ERROR_MESSAGE };

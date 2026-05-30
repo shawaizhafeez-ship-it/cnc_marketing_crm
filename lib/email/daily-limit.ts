@@ -57,32 +57,36 @@ export async function getOrCreateDailyCounter(
     return existing as DailyCounterRow;
   }
 
-  const { data: created, error: insertError } = await supabase
+  // ignoreDuplicates avoids race when two requests create the same date row
+  const { error: upsertError } = await supabase
     .from("daily_send_counters")
-    .insert({
-      counter_date: date,
-      renewal_sent: 0,
-      marketing_sent: 0,
-      marketing_limit: MARKETING_DAILY_LIMIT,
-    })
-    .select("*")
-    .single();
+    .upsert(
+      {
+        counter_date: date,
+        renewal_sent: 0,
+        marketing_sent: 0,
+        marketing_limit: MARKETING_DAILY_LIMIT,
+      },
+      { onConflict: "counter_date", ignoreDuplicates: true }
+    );
 
-  if (insertError) {
-    const { data: retry } = await supabase
-      .from("daily_send_counters")
-      .select("*")
-      .eq("counter_date", date)
-      .maybeSingle();
-
-    if (retry) {
-      return retry as DailyCounterRow;
-    }
-
-    throw new Error(`Failed to create daily counter: ${insertError.message}`);
+  if (upsertError) {
+    throw new Error(`Failed to ensure daily counter: ${upsertError.message}`);
   }
 
-  return created as DailyCounterRow;
+  const { data: row, error: finalReadError } = await supabase
+    .from("daily_send_counters")
+    .select("*")
+    .eq("counter_date", date)
+    .single();
+
+  if (finalReadError || !row) {
+    throw new Error(
+      `Failed to read daily counter: ${finalReadError?.message ?? "row not found"}`
+    );
+  }
+
+  return row as DailyCounterRow;
 }
 
 export async function getMarketingDailyStatus(

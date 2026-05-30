@@ -1,4 +1,4 @@
-export type EmailLogType = "all" | "renewal" | "marketing" | "manual";
+export type EmailLogType = "all" | "renewal" | "marketing" | "manual" | "cold";
 
 export type EmailLogStatus = "sent" | "failed" | "skipped" | "pending" | "cancelled";
 
