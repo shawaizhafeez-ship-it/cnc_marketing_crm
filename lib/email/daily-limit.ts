@@ -89,6 +89,34 @@ export async function getOrCreateDailyCounter(
   return row as DailyCounterRow;
 }
 
+/** Read-only — safe for dashboard (no counter row creation; uses service role in cron). */
+export async function readMarketingDailyStatus(
+  supabase: SupabaseClient,
+  date: Date = new Date()
+): Promise<MarketingDailyStatus> {
+  const counterDate = getCounterDateUtc(date);
+  const { data: existing, error } = await supabase
+    .from("daily_send_counters")
+    .select("counter_date, marketing_sent, marketing_limit, renewal_sent")
+    .eq("counter_date", counterDate)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to read daily counter: ${error.message}`);
+  }
+
+  if (existing) {
+    return computeMarketingDailyStatus(existing as DailyCounterRow);
+  }
+
+  return computeMarketingDailyStatus({
+    counter_date: counterDate,
+    marketing_sent: 0,
+    marketing_limit: MARKETING_DAILY_LIMIT,
+    renewal_sent: 0,
+  });
+}
+
 export async function getMarketingDailyStatus(
   supabase: SupabaseClient,
   date: Date = new Date()

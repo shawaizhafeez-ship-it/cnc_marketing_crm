@@ -180,13 +180,12 @@ export async function triggerRenewalSend(): Promise<RenewalSendActionState> {
 
 export async function getSettingsPageData(): Promise<SettingsPageData> {
   const { profile, supabase } = await requireAuthenticatedUser();
-  const admin = createAdminClient();
 
   const [latestLog, renewalSendLog, marketingSendLog, appSettings] =
     await Promise.all([
-      getLatestSyncLog(admin),
-      getRenewalCronRunLog(admin),
-      getMarketingCronRunLog(admin),
+      getLatestSyncLog(supabase),
+      getRenewalCronRunLog(supabase),
+      getMarketingCronRunLog(supabase),
       fetchAppSettings(supabase),
     ]);
 

@@ -8,12 +8,18 @@ import type { Database } from "@/supabase/database.types";
  * Bypasses RLS — never import in client components.
  */
 export function createAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
 
-  if (!url || !serviceRoleKey) {
+  const missing: string[] = [];
+  if (!url) missing.push("NEXT_PUBLIC_SUPABASE_URL");
+  if (!serviceRoleKey) missing.push("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (missing.length > 0) {
     throw new Error(
-      "NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured"
+      `Missing Vercel environment variable(s): ${missing.join(", ")}. ` +
+        "Add them under Project → Settings → Environment Variables (Production), " +
+        "then redeploy — saving env vars alone does not update a live deployment."
     );
   }
 

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getMarketingDailyStatus } from "@/lib/email/daily-limit";
+import { readMarketingDailyStatus } from "@/lib/email/daily-limit";
 import {
   getMarketingCronRunLog,
   runMarketingSendCron,
@@ -12,7 +12,6 @@ import type { DashboardData, DashboardStats } from "@/lib/dashboard/types";
 import { listMarketingCampaigns } from "@/app/(dashboard)/marketing/campaigns/actions";
 import { listRenewalCampaigns } from "@/app/(dashboard)/renewals/campaigns/actions";
 import { getLatestSyncLog } from "@/lib/sheets/sync";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { resolveUserProfile } from "@/lib/auth/profile";
 
@@ -129,7 +128,6 @@ async function fetchRecentEmailLogs(
 
 export async function getDashboardData(): Promise<DashboardData> {
   const { supabase, profile } = await requireAuthenticatedUser();
-  const admin = createAdminClient();
 
   const [
     stats,
@@ -142,9 +140,9 @@ export async function getDashboardData(): Promise<DashboardData> {
   ] = await Promise.all([
     fetchDashboardStats(supabase),
     fetchRecentEmailLogs(supabase),
-    getMarketingDailyStatus(admin),
-    getMarketingCronRunLog(admin),
-    getLatestSyncLog(admin),
+    readMarketingDailyStatus(supabase),
+    getMarketingCronRunLog(supabase),
+    getLatestSyncLog(supabase),
     listRenewalCampaigns({ status: "active", sort: "desc" }),
     listMarketingCampaigns({ status: "active", sort: "desc" }),
   ]);
