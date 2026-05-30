@@ -117,6 +117,17 @@ type ExistingCertificate = {
   sheet_row_hash: string | null;
 };
 
+/** Last row wins when the sheet contains duplicate certificate numbers. */
+export function dedupeCertificatesByNumber(
+  certificates: CertificateUpsert[]
+): CertificateUpsert[] {
+  const byCertNo = new Map<string, CertificateUpsert>();
+  for (const certificate of certificates) {
+    byCertNo.set(certificate.certificate_no, certificate);
+  }
+  return Array.from(byCertNo.values());
+}
+
 export async function syncCertificatesFromSheet(
   supabase: SupabaseClient
 ): Promise<SyncStats> {
@@ -148,6 +159,10 @@ export async function syncCertificatesFromSheet(
     );
 
     const toUpsert: CertificateUpsert[] = [];
+    const latestByCertNo = new Map<
+      string,
+      { certificate: CertificateUpsert; rowNumber: number }
+    >();
 
     for (let i = 0; i < sheetRows.length; i++) {
       const rowNumber = i + 2; // 1-based sheet row (header is row 1)
@@ -160,6 +175,23 @@ export async function syncCertificatesFromSheet(
       }
 
       const { certificate } = mapped;
+
+      if (latestByCertNo.has(certificate.certificate_no)) {
+        warnings.push({
+          row: rowNumber,
+          certificate_no: certificate.certificate_no,
+          reason:
+            "Duplicate certificate number in sheet — keeping the last row for this certificate",
+        });
+      }
+
+      latestByCertNo.set(certificate.certificate_no, {
+        certificate,
+        rowNumber,
+      });
+    }
+
+    for (const { certificate } of latestByCertNo.values()) {
       const existing = existingByCertNo.get(certificate.certificate_no);
 
       if (existing && existing.sheet_row_hash === certificate.sheet_row_hash) {
@@ -172,7 +204,9 @@ export async function syncCertificatesFromSheet(
 
     const BATCH_SIZE = 100;
     for (let i = 0; i < toUpsert.length; i += BATCH_SIZE) {
-      const batch = toUpsert.slice(i, i + BATCH_SIZE);
+      const batch = dedupeCertificatesByNumber(
+        toUpsert.slice(i, i + BATCH_SIZE)
+      );
       const { error: upsertError } = await supabase.from("certificates").upsert(
         batch.map((cert) => ({
           certificate_no: cert.certificate_no,
