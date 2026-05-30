@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/sync-sheets",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/send-renewals",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/send-marketing",
+      "schedule": "*/10 * * * *"
+    }
+  ]
+}

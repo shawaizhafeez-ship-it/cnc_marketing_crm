@@ -1,0 +1,2 @@
+[functions.auth-before-user-created]
+verify_jwt = false
