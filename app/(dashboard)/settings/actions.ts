@@ -18,6 +18,7 @@ import { getSheetConfig } from "@/lib/sheets/google-client";
 import type { SyncStats } from "@/lib/sheets/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { resolveUserProfile } from "@/lib/auth/profile";
 
 export type SyncActionState = {
   error?: string;
@@ -35,17 +36,19 @@ async function requireAuthenticatedUser() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (!user?.email) {
     throw new Error("You must be signed in to sync sheets.");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, is_active, email, role")
-    .eq("id", user.id)
-    .single();
+  const profile = await resolveUserProfile(user, { autoCreate: true });
 
-  if (!profile?.is_active) {
+  if (!profile) {
+    throw new Error(
+      "No profile found for your account. Complete account setup on the dashboard first."
+    );
+  }
+
+  if (!profile.is_active) {
     throw new Error("Your account is not active.");
   }
 

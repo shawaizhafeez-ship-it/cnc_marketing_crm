@@ -42,11 +42,15 @@ export async function getProfile() {
 
   if (!user) return null;
 
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from("profiles")
     .select("id, email, full_name, role, is_active")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load profile: ${error.message}`);
+  }
 
   return profile;
 }

@@ -21,7 +21,13 @@ type LogsPageProps = {
 
 function parseFilters(params: Awaited<LogsPageProps["searchParams"]>): EmailLogFilters {
   const type = params.type as EmailLogType | undefined;
-  const validTypes: EmailLogType[] = ["all", "renewal", "marketing", "manual"];
+  const validTypes: EmailLogType[] = [
+    "all",
+    "renewal",
+    "marketing",
+    "cold",
+    "manual",
+  ];
   const page = params.page ? Math.max(1, parseInt(params.page, 10) || 1) : 1;
 
   return {
