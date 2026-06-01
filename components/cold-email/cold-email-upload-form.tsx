@@ -197,29 +197,33 @@ export function ColdEmailUploadForm() {
                   ))}
                 </ul>
               )}
-              {preview.rows.length > 0 && (
-                <div className="mt-3 overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="py-1 pr-3">Email</th>
-                        <th className="py-1">Company</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {preview.rows.map((row) => (
-                        <tr key={row.email} className="border-b border-muted">
-                          <td className="py-1 pr-3 font-mono">{row.email}</td>
-                          <td className="py-1">{row.company}</td>
+              {preview.rows.length > 0 && preview.total > 0 && (
+                <div className="mt-3">
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    Sample rows (first {preview.rows.length}
+                    {preview.total > preview.rows.length
+                      ? ` of ${preview.total}`
+                      : ""}
+                    ):
+                  </p>
+                  <div className="overflow-x-auto rounded-md border bg-muted/30">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b bg-muted/50">
+                          <th className="px-2 py-1.5 font-medium">Email</th>
+                          <th className="px-2 py-1.5 font-medium">Company</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {preview.total > preview.rows.length && (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Showing first {preview.rows.length} of {preview.total}
-                    </p>
-                  )}
+                      </thead>
+                      <tbody>
+                        {preview.rows.map((row) => (
+                          <tr key={row.email} className="border-b border-muted last:border-0">
+                            <td className="px-2 py-1.5 font-mono">{row.email}</td>
+                            <td className="px-2 py-1.5">{row.company}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>

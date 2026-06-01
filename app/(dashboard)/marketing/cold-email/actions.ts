@@ -60,6 +60,8 @@ export type ColdEmailSendActionState = {
   stats?: ColdEmailCronStats;
 };
 
+const COLD_EMAIL_CSV_PREVIEW_SAMPLE_SIZE = 3;
+
 async function requireUser() {
   const supabase = await createClient();
   const {
@@ -120,7 +122,7 @@ export async function previewColdEmailCsvUpload(
   const result = parseColdEmailCsv(content, { verifiedOnly });
 
   return {
-    rows: result.rows.slice(0, 10),
+    rows: result.rows.slice(0, COLD_EMAIL_CSV_PREVIEW_SAMPLE_SIZE),
     skipped: result.skipped,
     errors: result.errors,
     total: result.rows.length,
@@ -238,25 +240,33 @@ export async function getColdEmailBatchDetail(
     throw new Error("Batch not found.");
   }
 
-  const { data: recipients, error: recipientError } = await supabase
-    .from("cold_email_recipients")
-    .select(
-      "id, recipient_email, company_name, status, sent_at, error_message, created_at"
-    )
-    .eq("batch_id", batchId)
-    .order("created_at", { ascending: true });
+  const [{ data: recipients, error: recipientError }, { count: pendingCount }] =
+    await Promise.all([
+      supabase
+        .from("cold_email_recipients")
+        .select(
+          "id, recipient_email, company_name, status, sent_at, error_message, created_at"
+        )
+        .eq("batch_id", batchId)
+        .order("created_at", { ascending: true })
+        .limit(200),
+      supabase
+        .from("cold_email_recipients")
+        .select("*", { count: "exact", head: true })
+        .eq("batch_id", batchId)
+        .eq("status", "pending"),
+    ]);
 
   if (recipientError) {
     throw new Error(recipientError.message);
   }
 
   const rows = (recipients ?? []) as ColdEmailRecipientRow[];
-  const pendingCount = rows.filter((row) => row.status === "pending").length;
 
   return {
     batch: batch as ColdEmailBatchDetail["batch"],
     recipients: rows,
-    pendingCount,
+    pendingCount: pendingCount ?? 0,
   };
 }
 
@@ -328,7 +338,7 @@ export async function deleteColdEmailBatch(
 
 export async function triggerColdEmailSend(): Promise<ColdEmailSendActionState> {
   try {
-    await requireAdmin();
+    await requireUser();
     const stats = await runColdEmailSendCron();
     revalidatePath("/marketing/cold-email");
     revalidatePath("/dashboard");

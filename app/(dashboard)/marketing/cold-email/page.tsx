@@ -2,23 +2,17 @@ import Link from "next/link";
 import { Mail } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
-import { MarketingDailyWidget } from "@/components/dashboard/marketing-daily-widget";
 import { ColdEmailBatchList } from "@/components/cold-email/cold-email-batch-list";
 import { ColdEmailUploadForm } from "@/components/cold-email/cold-email-upload-form";
 import { SendColdEmailButton } from "@/components/cold-email/send-cold-email-button";
-import { getDashboardData } from "@/app/(dashboard)/dashboard/actions";
 import { listColdEmailBatches } from "@/app/(dashboard)/marketing/cold-email/actions";
 
 export default async function ColdEmailPage() {
   let batches: Awaited<ReturnType<typeof listColdEmailBatches>> = [];
-  let pageData: Awaited<ReturnType<typeof getDashboardData>> | null = null;
   let error: string | null = null;
 
   try {
-    [batches, pageData] = await Promise.all([
-      listColdEmailBatches(),
-      getDashboardData(),
-    ]);
+    batches = await listColdEmailBatches();
   } catch (e) {
     error = e instanceof Error ? e.message : "Failed to load cold email batches";
   }
@@ -31,7 +25,7 @@ export default async function ColdEmailPage() {
       />
 
       <div className="mb-6 flex flex-wrap gap-3">
-        {pageData?.isAdmin && <SendColdEmailButton />}
+        <SendColdEmailButton />
         <Link
           href="/logs?type=cold"
           className="text-sm text-muted-foreground underline-offset-4 hover:underline"
@@ -40,11 +34,11 @@ export default async function ColdEmailPage() {
         </Link>
       </div>
 
-      {pageData?.marketingDaily && (
-        <div className="mb-6">
-          <MarketingDailyWidget status={pageData.marketingDaily} />
-        </div>
-      )}
+      <div className="mb-6 rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
+        Uploading a CSV only <strong className="text-foreground">queues</strong>{" "}
+        recipients. Use <strong className="text-foreground">Send pending cold emails now</strong>{" "}
+        to process 10 emails per click, or wait for the daily cron job.
+      </div>
 
       {error && (
         <div className="mb-6 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">

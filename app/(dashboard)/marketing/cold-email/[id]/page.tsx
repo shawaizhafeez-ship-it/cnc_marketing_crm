@@ -6,7 +6,6 @@ import { EmailStatusBadge } from "@/components/renewals/campaign-status-badge";
 import { ColdEmailActions } from "@/components/cold-email/cold-email-actions";
 import { ColdEmailRecipientTable } from "@/components/cold-email/cold-email-recipient-table";
 import { SendColdEmailButton } from "@/components/cold-email/send-cold-email-button";
-import { getDashboardData } from "@/app/(dashboard)/dashboard/actions";
 import { getColdEmailBatchDetail } from "@/app/(dashboard)/marketing/cold-email/actions";
 import { renderColdEmailHtml } from "@/lib/email/cold-email-template";
 import { Button } from "@/components/ui/button";
@@ -28,13 +27,9 @@ export default async function ColdEmailBatchPage({
   const { id } = await params;
 
   let detail: Awaited<ReturnType<typeof getColdEmailBatchDetail>>;
-  let pageData: Awaited<ReturnType<typeof getDashboardData>> | null = null;
 
   try {
-    [detail, pageData] = await Promise.all([
-      getColdEmailBatchDetail(id),
-      getDashboardData(),
-    ]);
+    detail = await getColdEmailBatchDetail(id);
   } catch {
     notFound();
   }
@@ -64,10 +59,22 @@ export default async function ColdEmailBatchPage({
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <EmailStatusBadge status={batch.status} />
         <ColdEmailActions batchId={batch.id} status={batch.status} />
-        {pageData?.isAdmin && batch.status === "active" && pendingCount > 0 && (
+        {batch.status === "active" && pendingCount > 0 && (
           <SendColdEmailButton />
         )}
       </div>
+
+      {batch.status === "active" && pendingCount > 0 && (
+        <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-50 p-4 text-sm text-amber-950 dark:bg-amber-950/20 dark:text-amber-100">
+          <p className="font-medium">Queue waiting — emails are not sent automatically on upload.</p>
+          <p className="mt-1 text-amber-900/80 dark:text-amber-100/80">
+            Click <strong>Send pending cold emails now</strong> to process up to{" "}
+            <strong>10 emails</strong> per run (2s apart). Repeat until the queue
+            is empty, or wait for the daily Vercel cron (8:00 UTC on Hobby).
+            Daily marketing limit: 100 emails total.
+          </p>
+        </div>
+      )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
@@ -148,7 +155,14 @@ export default async function ColdEmailBatchPage({
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Recipients</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">Recipients</h2>
+          {batch.total_recipients > recipients.length && (
+            <p className="text-sm text-muted-foreground">
+              Showing first {recipients.length} of {batch.total_recipients}
+            </p>
+          )}
+        </div>
         <ColdEmailRecipientTable recipients={recipients} />
       </div>
     </>
