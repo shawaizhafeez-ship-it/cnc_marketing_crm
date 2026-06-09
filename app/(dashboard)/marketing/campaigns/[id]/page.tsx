@@ -46,6 +46,16 @@ export default async function MarketingCampaignDetailPage({
       ? Math.round((campaign.emails_sent / campaign.total_emails) * 100)
       : 0;
 
+  const firstPendingSend = scheduledEmails
+    .filter((email) => email.status === "pending")
+    .sort(
+      (a, b) =>
+        new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
+    )[0];
+  const isScheduledForFuture =
+    firstPendingSend &&
+    new Date(firstPendingSend.scheduled_at).getTime() > Date.now();
+
   const defaultTab =
     tab === "touchpoints" || tab === "scheduled" ? tab : "overview";
 
@@ -70,11 +80,36 @@ export default async function MarketingCampaignDetailPage({
         <span className="text-sm text-muted-foreground">
           Type: {CAMPAIGN_TYPE_LABELS[campaign.campaign_type]}
         </span>
+        {campaign.started_at && (
+          <span className="text-sm text-muted-foreground">
+            First send:{" "}
+            {new Date(campaign.started_at).toLocaleString("en-GB", {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })}
+          </span>
+        )}
         <MarketingCampaignActions
           campaignId={campaign.id}
           status={campaign.status}
         />
       </div>
+
+      {isScheduledForFuture && firstPendingSend && (
+        <div className="mb-6 rounded-lg border border-blue-500/40 bg-blue-50 p-4 text-sm text-blue-950 dark:bg-blue-950/20 dark:text-blue-100">
+          <p className="font-medium">Scheduled for a future send</p>
+          <p className="mt-1 text-blue-900/80 dark:text-blue-100/80">
+            The next pending email is scheduled for{" "}
+            <strong>
+              {new Date(firstPendingSend.scheduled_at).toLocaleString("en-GB", {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}
+            </strong>
+            . Emails will not send before that time.
+          </p>
+        </div>
+      )}
 
       <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Metric label="Certificates" value={String(campaign.total_certificates)} />
@@ -102,6 +137,7 @@ export default async function MarketingCampaignDetailPage({
       <MarketingCampaignDetailTabs
         defaultTab={defaultTab}
         filtersApplied={campaign.filters_applied}
+        campaignStartedAt={campaign.started_at}
         touchpoints={touchpoints}
         scheduledEmails={scheduledEmails}
       />

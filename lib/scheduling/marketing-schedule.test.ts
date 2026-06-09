@@ -3,6 +3,7 @@ import {
   buildMarketingScheduledEmails,
   calculateDelayDays,
   calculateTouchpointDates,
+  resolveCampaignStart,
 } from "@/lib/scheduling/marketing-schedule";
 import type { CertificateRow } from "@/lib/renewals/types";
 
@@ -55,6 +56,43 @@ describe("calculateTouchpointDates", () => {
 
     expect(dates[0].scheduledAt).toBe("2026-03-01T09:00:00.000Z");
     expect(dates[1].scheduledAt).toBe("2026-03-08T09:00:00.000Z");
+  });
+});
+
+describe("resolveCampaignStart", () => {
+  it("uses now for immediate campaigns", () => {
+    const now = new Date("2026-06-01T12:00:00.000Z");
+    const result = resolveCampaignStart({ startMode: "immediate", now });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.start.toISOString()).toBe(now.toISOString());
+    }
+  });
+
+  it("accepts a future scheduled start", () => {
+    const now = new Date("2026-06-01T12:00:00.000Z");
+    const result = resolveCampaignStart({
+      startMode: "scheduled",
+      scheduledStartAt: "2026-06-15T09:00:00.000Z",
+      now,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.start.toISOString()).toBe("2026-06-15T09:00:00.000Z");
+    }
+  });
+
+  it("rejects scheduled starts in the past", () => {
+    const now = new Date("2026-06-01T12:00:00.000Z");
+    const result = resolveCampaignStart({
+      startMode: "scheduled",
+      scheduledStartAt: "2026-05-01T09:00:00.000Z",
+      now,
+    });
+
+    expect(result.ok).toBe(false);
   });
 });
 

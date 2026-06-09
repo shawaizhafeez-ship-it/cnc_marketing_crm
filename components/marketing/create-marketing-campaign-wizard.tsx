@@ -24,10 +24,16 @@ import {
   CAMPAIGN_TYPES,
   CAMPAIGN_TYPE_LABELS,
   SCHEDULE_TYPE_LABELS,
+  type CampaignStartMode,
   type CampaignType,
   type TouchpointConfigInput,
   type TouchpointScheduleType,
 } from "@/lib/marketing/campaign-types";
+import {
+  calculateTouchpointDates,
+  defaultScheduledCampaignStart,
+  toDatetimeLocalValue,
+} from "@/lib/scheduling/marketing-schedule";
 import type { MarketingFilters } from "@/lib/marketing/filter-certificates";
 import { formatExpiryDisplay } from "@/lib/renewals/prepare-email-data";
 import type { CertificateRow } from "@/lib/renewals/types";
@@ -97,6 +103,10 @@ export function CreateMarketingCampaignWizard({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [campaignType, setCampaignType] = useState<CampaignType>("marketing");
+  const [startMode, setStartMode] = useState<CampaignStartMode>("immediate");
+  const [scheduledStartLocal, setScheduledStartLocal] = useState(() =>
+    toDatetimeLocalValue(defaultScheduledCampaignStart())
+  );
 
   const [itemSearch, setItemSearch] = useState("");
   const [companySearch, setCompanySearch] = useState("");
@@ -206,12 +216,29 @@ export function CreateMarketingCampaignWizard({
       return;
     }
 
+    if (startMode === "scheduled") {
+      const scheduledStart = new Date(scheduledStartLocal);
+      if (Number.isNaN(scheduledStart.getTime())) {
+        toast.error("Choose a valid date and time for the first send.");
+        return;
+      }
+      if (scheduledStart.getTime() < Date.now() + 60_000) {
+        toast.error("Scheduled start must be at least 1 minute in the future.");
+        return;
+      }
+    }
+
     const payload: CreateMarketingCampaignInput = {
       name: name.trim(),
       description: description.trim(),
       campaign_type: campaignType,
       filters,
       touchpoints,
+      start_mode: startMode,
+      scheduled_start_at:
+        startMode === "scheduled"
+          ? new Date(scheduledStartLocal).toISOString()
+          : undefined,
     };
 
     startCreate(async () => {
@@ -223,6 +250,31 @@ export function CreateMarketingCampaignWizard({
   }
 
   const projectedEmails = previewSummary.uniqueRecipients * touchpoints.length;
+
+  const campaignStartPreview =
+    startMode === "scheduled"
+      ? new Date(scheduledStartLocal)
+      : new Date();
+
+  const touchpointSchedulePreview = calculateTouchpointDates(
+    Number.isNaN(campaignStartPreview.getTime()) ? new Date() : campaignStartPreview,
+    touchpoints.map((touchpoint) => ({
+      touchpointNumber: touchpoint.touchpoint_number,
+      scheduleType: touchpoint.schedule_type,
+      scheduleValue: touchpoint.schedule_value,
+    }))
+  );
+
+  const minScheduledStartLocal = toDatetimeLocalValue(
+    new Date(Date.now() + 60_000)
+  );
+
+  function formatSchedulePreview(iso: string) {
+    return new Date(iso).toLocaleString("en-GB", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -580,6 +632,50 @@ export function CreateMarketingCampaignWizard({
                   rows={4}
                 />
               </div>
+
+              <div className="space-y-3 rounded-lg border p-4">
+                <Label>When should the first email send?</Label>
+                <div className="space-y-2">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="campaign-start-mode"
+                      checked={startMode === "immediate"}
+                      onChange={() => setStartMode("immediate")}
+                    />
+                    Start immediately (first touchpoint sends on next cron run)
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="campaign-start-mode"
+                      checked={startMode === "scheduled"}
+                      onChange={() => setStartMode("scheduled")}
+                    />
+                    Schedule for a future date and time
+                  </label>
+                </div>
+                {startMode === "scheduled" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="campaign-scheduled-start">
+                      First send date & time
+                    </Label>
+                    <Input
+                      id="campaign-scheduled-start"
+                      type="datetime-local"
+                      min={minScheduledStartLocal}
+                      value={scheduledStartLocal}
+                      onChange={(event) =>
+                        setScheduledStartLocal(event.target.value)
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Uses your local timezone. Later touchpoints are calculated
+                      from this start time plus each touchpoint&apos;s interval.
+                    </p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -624,6 +720,14 @@ export function CreateMarketingCampaignWizard({
                 label="Exclude done"
                 value={filters.exclude_done ? "Yes" : "No"}
               />
+              <ReviewRow
+                label="First send"
+                value={
+                  startMode === "scheduled"
+                    ? formatSchedulePreview(campaignStartPreview.toISOString())
+                    : "Immediately after creation"
+                }
+              />
 
               <div className="pt-2">
                 <p className="mb-2 font-medium">Touchpoint plan</p>
@@ -632,12 +736,19 @@ export function CreateMarketingCampaignWizard({
                     const template = templates.find(
                       (entry) => entry.id === touchpoint.template_id
                     );
+                    const schedule = touchpointSchedulePreview.find(
+                      (entry) =>
+                        entry.touchpointNumber === touchpoint.touchpoint_number
+                    );
                     return (
                       <li key={touchpoint.touchpoint_number}>
                         TP{touchpoint.touchpoint_number}: {template?.name ?? "—"} ·{" "}
                         {SCHEDULE_TYPE_LABELS[touchpoint.schedule_type]}
                         {touchpoint.schedule_type === "custom_days"
                           ? ` (${touchpoint.schedule_value}d)`
+                          : ""}
+                        {schedule
+                          ? ` · sends ${formatSchedulePreview(schedule.scheduledAt)}`
                           : ""}
                       </li>
                     );

@@ -37,12 +37,18 @@ export type TouchpointConfigInput = {
   schedule_value: number;
 };
 
+export type CampaignStartMode = "immediate" | "scheduled";
+
 export type CreateMarketingCampaignInput = {
   name: string;
   description?: string;
   campaign_type: CampaignType;
   filters: import("@/lib/marketing/filter-certificates").MarketingFilters;
   touchpoints: TouchpointConfigInput[];
+  /** When omitted, sends are anchored to creation time (immediate). */
+  start_mode?: CampaignStartMode;
+  /** ISO-8601 datetime; required when start_mode is "scheduled". */
+  scheduled_start_at?: string;
 };
 
 export type MarketingCampaignStats = {

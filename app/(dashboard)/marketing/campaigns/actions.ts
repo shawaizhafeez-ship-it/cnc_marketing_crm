@@ -22,6 +22,7 @@ import type { MarketingFilters } from "@/lib/marketing/filter-certificates";
 import {
   buildMarketingScheduledEmails,
   calculateDelayDays,
+  resolveCampaignStart,
   summarizeMarketingSchedule,
 } from "@/lib/scheduling/marketing-schedule";
 import type { CertificateRow } from "@/lib/renewals/types";
@@ -181,13 +182,22 @@ export async function createMarketingCampaign(
   const templateMap = new Map(
     (templates ?? []).map((template) => [template.id, template])
   );
+  const startResult = resolveCampaignStart({
+    startMode: input.start_mode,
+    scheduledStartAt: input.scheduled_start_at,
+  });
+
+  if (!startResult.ok) {
+    return { error: startResult.error };
+  }
+
   const summary = summarizeMarketingSchedule(
     filtered,
     input.touchpoints.length
   );
   const campaignId = crypto.randomUUID();
-  const now = new Date().toISOString();
-  const campaignStart = new Date();
+  const campaignStart = startResult.start;
+  const startedAt = campaignStart.toISOString();
 
   const { error: campaignError } = await supabase
     .from("marketing_campaigns")
@@ -203,7 +213,7 @@ export async function createMarketingCampaign(
       total_emails: summary.totalEmailsScheduled,
       emails_sent: 0,
       created_by: userId,
-      started_at: now,
+      started_at: startedAt,
     });
 
   if (campaignError) {

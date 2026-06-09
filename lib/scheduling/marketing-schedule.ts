@@ -1,8 +1,60 @@
 import { renderTemplate } from "@/lib/email/template-renderer";
 import { buildRecipientTemplateVariables } from "@/lib/marketing/build-recipient-variables";
 import { groupCertificatesByRecipient } from "@/lib/marketing/filter-certificates";
-import type { TouchpointScheduleType } from "@/lib/marketing/campaign-types";
+import type {
+  CampaignStartMode,
+  TouchpointScheduleType,
+} from "@/lib/marketing/campaign-types";
 import type { CertificateRow } from "@/lib/renewals/types";
+
+export type ResolveCampaignStartResult =
+  | { ok: true; start: Date }
+  | { ok: false; error: string };
+
+/** Format a Date for `<input type="datetime-local" />` in local time. */
+export function toDatetimeLocalValue(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+export function defaultScheduledCampaignStart(now: Date = new Date()): Date {
+  const start = new Date(now.getTime());
+  start.setDate(start.getDate() + 1);
+  start.setHours(9, 0, 0, 0);
+  return start;
+}
+
+export function resolveCampaignStart(options: {
+  startMode?: CampaignStartMode;
+  scheduledStartAt?: string | null;
+  now?: Date;
+}): ResolveCampaignStartResult {
+  const now = options.now ?? new Date();
+  const startMode = options.startMode ?? "immediate";
+
+  if (startMode === "immediate") {
+    return { ok: true, start: now };
+  }
+
+  const raw = options.scheduledStartAt?.trim();
+  if (!raw) {
+    return { ok: false, error: "Choose a date and time for the first send." };
+  }
+
+  const start = new Date(raw);
+  if (Number.isNaN(start.getTime())) {
+    return { ok: false, error: "Invalid scheduled start date and time." };
+  }
+
+  if (start.getTime() < now.getTime() - 60_000) {
+    return {
+      ok: false,
+      error: "Scheduled start must be at least 1 minute in the future.",
+    };
+  }
+
+  return { ok: true, start };
+}
 
 export type TouchpointScheduleConfig = {
   touchpointNumber: number;

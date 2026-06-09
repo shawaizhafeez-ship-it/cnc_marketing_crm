@@ -16,6 +16,7 @@ import {
   type MarketingScheduledEmailRow,
   type MarketingTouchpointRow,
 } from "@/lib/marketing/campaign-types";
+import { calculateTouchpointDates } from "@/lib/scheduling/marketing-schedule";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Card,
@@ -37,6 +38,7 @@ function formatDateTime(iso: string | null) {
 type MarketingCampaignDetailTabsProps = {
   defaultTab: string;
   filtersApplied: Record<string, unknown>;
+  campaignStartedAt: string | null;
   touchpoints: MarketingTouchpointRow[];
   scheduledEmails: MarketingScheduledEmailRow[];
 };
@@ -44,9 +46,27 @@ type MarketingCampaignDetailTabsProps = {
 export function MarketingCampaignDetailTabs({
   defaultTab,
   filtersApplied,
+  campaignStartedAt,
   touchpoints,
   scheduledEmails,
 }: MarketingCampaignDetailTabsProps) {
+  const touchpointSendDates = useMemo(() => {
+    if (!campaignStartedAt) {
+      return new Map<number, string>();
+    }
+
+    const dates = calculateTouchpointDates(new Date(campaignStartedAt), touchpoints.map(
+      (touchpoint) => ({
+        touchpointNumber: touchpoint.touchpoint_number,
+        scheduleType: touchpoint.schedule_type,
+        scheduleValue: touchpoint.schedule_value,
+      })
+    ));
+
+    return new Map(
+      dates.map((entry) => [entry.touchpointNumber, entry.scheduledAt])
+    );
+  }, [campaignStartedAt, touchpoints]);
   const [touchpointFilter, setTouchpointFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
@@ -180,6 +200,14 @@ export function MarketingCampaignDetailTabs({
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Active</span>
                   <span>{touchpoint.is_active ? "Yes" : "No"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">First send (UTC)</span>
+                  <span>
+                    {formatDateTime(
+                      touchpointSendDates.get(touchpoint.touchpoint_number) ?? null
+                    )}
+                  </span>
                 </div>
               </CardContent>
             </Card>
