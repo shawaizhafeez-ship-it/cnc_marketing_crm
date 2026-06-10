@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { withCronAuth } from "@/lib/cron/route-handler";
 import { runMarketingSendCron } from "@/lib/email/send-marketing";
 
+export const maxDuration = 300;
+
 /**
- * Vercel Cron invokes GET every 10 minutes. POST supported for manual triggers.
+ * Vercel Cron invokes GET on schedule. POST supported for manual triggers.
  */
 export async function GET(request: NextRequest) {
   return withCronAuth(request, async () => {

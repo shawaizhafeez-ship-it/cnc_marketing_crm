@@ -37,7 +37,7 @@ export default async function ColdEmailPage() {
       <div className="mb-6 rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
         Uploading a CSV only <strong className="text-foreground">queues</strong>{" "}
         recipients. Use <strong className="text-foreground">Send pending cold emails now</strong>{" "}
-        to process 10 emails per click, or wait for the daily cron job.
+        to send all pending recipients in one run (100/day cap), or wait for the daily cron job.
       </div>
 
       {error && (

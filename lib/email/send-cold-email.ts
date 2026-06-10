@@ -8,8 +8,9 @@ import { logEmailSend } from "@/lib/email/log-email";
 import { MARKETING_CC, sendEmail } from "@/lib/email/smtp";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export const COLD_EMAIL_BATCH_SIZE = 10;
-export const COLD_EMAIL_DELAY_MS = 2000;
+/** Max pending cold emails processed per send run. */
+export const COLD_EMAIL_FETCH_LIMIT = 10_000;
+export const COLD_EMAIL_DELAY_MS = 0;
 export const APP_SETTINGS_COLD_EMAIL_CRON_KEY = "cold_email_send_cron";
 
 export type ColdEmailRecipientRecord = {
@@ -240,10 +241,10 @@ export async function getColdEmailCronRunLog(
 
 export async function runColdEmailSendCron(options?: {
   supabase?: SupabaseClient;
-  batchSize?: number;
+  fetchLimit?: number;
 }): Promise<ColdEmailCronStats> {
   const supabase = options?.supabase ?? createAdminClient();
-  const batchSize = options?.batchSize ?? COLD_EMAIL_BATCH_SIZE;
+  const fetchLimit = options?.fetchLimit ?? COLD_EMAIL_FETCH_LIMIT;
   const startedAt = new Date().toISOString();
   const errors: string[] = [];
   let processed = 0;
@@ -252,7 +253,7 @@ export async function runColdEmailSendCron(options?: {
   let limitReached = false;
 
   try {
-    const pending = await fetchPendingColdEmails(supabase, batchSize);
+    const pending = await fetchPendingColdEmails(supabase, fetchLimit);
 
     for (const item of pending) {
       if (!(await canSendMarketingEmail(supabase))) {

@@ -51,7 +51,7 @@ export default async function MarketingCampaignsPage({
             Create campaign
           </Link>
         </Button>
-        {pageData?.isAdmin && <SendMarketingButton />}
+        <SendMarketingButton />
       </div>
 
       {pageData?.marketingDaily && (

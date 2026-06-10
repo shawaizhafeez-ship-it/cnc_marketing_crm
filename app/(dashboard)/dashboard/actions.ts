@@ -161,7 +161,7 @@ export async function getDashboardData(): Promise<DashboardData> {
 
 export async function triggerMarketingSend(): Promise<MarketingSendActionState> {
   try {
-    await requireAdminUser();
+    await requireAuthenticatedUser();
     const stats = await runMarketingSendCron();
     revalidatePath("/dashboard");
     revalidatePath("/marketing/campaigns");

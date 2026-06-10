@@ -1,5 +1,4 @@
 import type { MarketingDailyStatus } from "@/lib/email/daily-limit";
-import { Progress } from "@/components/ui/progress";
 import {
   Card,
   CardContent,
@@ -13,46 +12,27 @@ type MarketingDailyWidgetProps = {
 };
 
 export function MarketingDailyWidget({ status }: MarketingDailyWidgetProps) {
-  const pct =
-    status.marketingLimit > 0
-      ? Math.round((status.marketingSent / status.marketingLimit) * 100)
-      : 0;
-
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-lg">Marketing emails today</CardTitle>
         <CardDescription>
-          Renewal sends are tracked separately and do not count toward this
-          limit.
+          Campaign emails have no daily limit. Cold email keeps a separate{" "}
+          {status.marketingLimit}/day cap on the marketing SMTP account.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-2">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="text-3xl font-bold">
-              {status.marketingSent}
-              <span className="text-lg font-normal text-muted-foreground">
-                {" "}
-                / {status.marketingLimit}
-              </span>
-            </p>
+            <p className="text-3xl font-bold">{status.marketingSent}</p>
             <p className="text-sm text-muted-foreground">
-              {status.remaining} remaining today
+              Marketing-account sends tracked today (mostly cold email)
             </p>
           </div>
           <p className="text-sm text-muted-foreground">
             Renewals sent today: {status.renewalSent}
           </p>
         </div>
-
-        <Progress value={pct} className="h-2" />
-
-        {!status.canSend && (
-          <p className="text-sm text-amber-700">
-            Daily marketing limit reached. Pending emails will resume tomorrow.
-          </p>
-        )}
       </CardContent>
     </Card>
   );

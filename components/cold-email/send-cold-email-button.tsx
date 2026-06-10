@@ -29,7 +29,7 @@ export function SendColdEmailButton({
       if (result.stats) {
         const { sent, failed, processed, limitReached } = result.stats;
         toast.success(
-          `Processed ${processed}: ${sent} sent, ${failed} failed${limitReached ? " (daily limit reached)" : ""}. Click again to send the next batch.`
+          `Processed ${processed}: ${sent} sent, ${failed} failed${limitReached ? " (daily limit reached)" : ""}.`
         );
         router.refresh();
       }
