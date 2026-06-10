@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { AccountSetupRequired } from "@/components/auth/account-setup-required";
 import { MobileHeader } from "@/components/shared/mobile-header";
@@ -5,6 +6,7 @@ import { Sidebar } from "@/components/shared/sidebar";
 import { UserNav } from "@/components/shared/user-nav";
 import { resolveUserProfile } from "@/lib/auth/profile";
 import { validateEmailForAuth } from "@/lib/auth/validation";
+import { syncGoogleSheetsOnAppLoad } from "@/lib/sheets/sync-on-load";
 import { getUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -65,6 +67,10 @@ export default async function DashboardLayout({
   const email = profile.email ?? user.email;
   const fullName = profile.full_name;
   const role = profile.role;
+
+  after(() => {
+    void syncGoogleSheetsOnAppLoad();
+  });
 
   return (
     <div className="flex min-h-screen bg-background">
