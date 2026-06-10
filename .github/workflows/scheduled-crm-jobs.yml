@@ -1,0 +1,88 @@
+# Replaces Vercel Hobby crons with GitHub Actions (free tier friendly).
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   APP_URL      — production URL, e.g. https://your-app.vercel.app (no trailing slash)
+#   CRON_SECRET  — same value as CRON_SECRET on Vercel
+#
+# Schedule (UTC): every hour at :00 — all jobs (~720 runs/month, ~720–1,500 billed minutes).
+#
+# Manual run: Actions → Scheduled CRM jobs → Run workflow
+
+name: Scheduled CRM jobs
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Which job to run (hourly schedule runs all four)
+        required: false
+        default: all
+        type: choice
+        options:
+          - all
+          - sync-sheets
+          - send-renewals
+          - send-marketing
+          - send-cold-email
+
+concurrency:
+  group: scheduled-crm-jobs
+  cancel-in-progress: false
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Call Vercel cron API routes
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          EVENT_NAME: ${{ github.event_name }}
+          JOB_INPUT: ${{ github.event.inputs.job }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::Missing APP_URL or CRON_SECRET repository secrets."
+            exit 1
+          fi
+
+          APP_URL="${APP_URL%/}"
+
+          hit() {
+            local path="$1"
+            echo "→ GET ${path}"
+            curl -fsS -X GET "${APP_URL}${path}" \
+              -H "Authorization: Bearer ${CRON_SECRET}" \
+              --max-time 300
+            echo ""
+          }
+
+          run_all() {
+            hit "/api/cron/sync-sheets"
+            hit "/api/cron/send-renewals"
+            hit "/api/cron/send-marketing"
+            hit "/api/cron/send-cold-email"
+          }
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            case "${JOB_INPUT:-all}" in
+              all) run_all ;;
+              sync-sheets) hit "/api/cron/sync-sheets" ;;
+              send-renewals) hit "/api/cron/send-renewals" ;;
+              send-marketing) hit "/api/cron/send-marketing" ;;
+              send-cold-email) hit "/api/cron/send-cold-email" ;;
+              *)
+                echo "::error::Unknown job: ${JOB_INPUT}"
+                exit 1
+                ;;
+            esac
+            exit 0
+          fi
+
+          echo "Hourly scheduled run (UTC $(date -u +%H:%M))"
+          run_all
