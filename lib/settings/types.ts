@@ -45,7 +45,7 @@ export const CRON_JOBS: CronJobInfo[] = [
     schedule: "*/10 * * * *",
     scheduleLabel: "Every 10 minutes",
     description:
-      "Sends pending marketing emails subject to the 100/day limit (max 10 per run).",
+      "Sends all due marketing campaign emails in one run.",
   },
 ];
 

@@ -68,10 +68,9 @@ export default async function ColdEmailBatchPage({
         <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-50 p-4 text-sm text-amber-950 dark:bg-amber-950/20 dark:text-amber-100">
           <p className="font-medium">Queue waiting — emails are not sent automatically on upload.</p>
           <p className="mt-1 text-amber-900/80 dark:text-amber-100/80">
-            Click <strong>Send pending cold emails now</strong> to process up to{" "}
-            <strong>10 emails</strong> per run (2s apart). Repeat until the queue
-            is empty, or wait for the daily Vercel cron (8:00 UTC on Hobby).
-            Daily marketing limit: 100 emails total.
+            Click <strong>Send pending cold emails now</strong> to process all
+            pending recipients in one run (up to 100/day), or wait for the daily
+            Vercel cron (8:00 UTC on Hobby).
           </p>
         </div>
       )}

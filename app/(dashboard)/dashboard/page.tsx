@@ -51,19 +51,23 @@ export default async function DashboardPage() {
 
           <DashboardRecentActivity logs={data.recentLogs} />
 
-          {data.isAdmin && data.marketingSendLog && (
-            <div className="rounded-lg border bg-muted/40 p-4 text-sm">
-              <p className="font-medium">Last marketing send run</p>
+          <div className="rounded-lg border bg-muted/40 p-4 text-sm">
+            <p className="font-medium">Marketing email sends</p>
+            {data.marketingSendLog ? (
               <p className="mt-1 text-muted-foreground">
-                {data.marketingSendLog.sent} sent · {data.marketingSendLog.skipped}{" "}
-                skipped · {data.marketingSendLog.failed} failed
-                {data.marketingSendLog.limitReached ? " · limit reached" : ""}
+                Last run: {data.marketingSendLog.sent} sent ·{" "}
+                {data.marketingSendLog.skipped} skipped ·{" "}
+                {data.marketingSendLog.failed} failed
               </p>
-              <div className="mt-3">
-                <SendMarketingButton />
-              </div>
+            ) : (
+              <p className="mt-1 text-muted-foreground">
+                No send runs recorded yet.
+              </p>
+            )}
+            <div className="mt-3">
+              <SendMarketingButton />
             </div>
-          )}
+          </div>
         </div>
       )}
     </>

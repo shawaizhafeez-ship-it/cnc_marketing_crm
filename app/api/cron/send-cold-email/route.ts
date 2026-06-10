@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { withCronAuth } from "@/lib/cron/route-handler";
 import { runColdEmailSendCron } from "@/lib/email/send-cold-email";
 
+export const maxDuration = 300;
+
 /**
  * Vercel Cron invokes GET on schedule. POST supported for manual triggers.
  */

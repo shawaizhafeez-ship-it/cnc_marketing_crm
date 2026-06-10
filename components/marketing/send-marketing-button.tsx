@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -7,6 +8,7 @@ import { triggerMarketingSend } from "@/app/(dashboard)/dashboard/actions";
 import { Button } from "@/components/ui/button";
 
 export function SendMarketingButton() {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   function handleSend() {
@@ -19,10 +21,11 @@ export function SendMarketingButton() {
       }
 
       if (result.stats) {
-        const { sent, skipped, failed, processed, limitReached } = result.stats;
+        const { sent, skipped, failed, processed } = result.stats;
         toast.success(
-          `Processed ${processed}: ${sent} sent, ${skipped} skipped, ${failed} failed${limitReached ? " (daily limit reached)" : ""}`
+          `Processed ${processed}: ${sent} sent, ${skipped} skipped, ${failed} failed.`
         );
+        router.refresh();
       }
     });
   }

@@ -1,9 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { renderTemplate } from "@/lib/email/template-renderer";
-import {
-  canSendMarketingEmail,
-  incrementMarketingDailyCounter,
-} from "@/lib/email/daily-limit";
 import { logEmailSend } from "@/lib/email/log-email";
 import { buildRecipientTemplateVariables } from "@/lib/marketing/build-recipient-variables";
 import {
@@ -15,8 +11,9 @@ import { MARKETING_CC, sendEmail } from "@/lib/email/smtp";
 import type { CertificateRow } from "@/lib/renewals/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export const MARKETING_SEND_BATCH_SIZE = 10;
-export const MARKETING_SEND_DELAY_MS = 2000;
+/** Max due emails loaded per send run (no small batch cap). */
+export const MARKETING_SEND_FETCH_LIMIT = 10_000;
+export const MARKETING_SEND_DELAY_MS = 0;
 export const APP_SETTINGS_MARKETING_CRON_KEY = "marketing_send_cron";
 
 export type MarketingScheduledEmailRecord = {
@@ -37,7 +34,7 @@ export type MarketingScheduledEmailRecord = {
 };
 
 export type ProcessMarketingEmailResult = {
-  outcome: "sent" | "skipped" | "failed" | "limit_reached";
+  outcome: "sent" | "skipped" | "failed";
   errorMessage?: string;
   messageId?: string;
 };
@@ -224,23 +221,11 @@ export async function processMarketingScheduledEmail(
   options: {
     sendFn?: SendEmailFn;
     now?: Date;
-    skipDailyLimitCheck?: boolean;
   } = {}
 ): Promise<ProcessMarketingEmailResult> {
   const sendFn = options.sendFn ?? sendEmail;
   const now = options.now ?? new Date();
   const nowIso = now.toISOString();
-
-  if (!options.skipDailyLimitCheck) {
-    const allowed = await canSendMarketingEmail(supabase, now);
-    if (!allowed) {
-      return {
-        outcome: "limit_reached",
-        errorMessage:
-          "Daily marketing email limit reached (100 emails/day). Email will be retried tomorrow.",
-      };
-    }
-  }
 
   const [{ data: liveCerts, error: certError }, { data: template, error: templateError }] =
     await Promise.all([
@@ -356,7 +341,6 @@ export async function processMarketingScheduledEmail(
       .eq("id", email.id);
 
     await incrementMarketingCampaignEmailsSent(supabase, email.campaign_id);
-    await incrementMarketingDailyCounter(supabase, now);
 
     await logEmailSend(supabase, {
       emailType: "marketing",
@@ -419,37 +403,31 @@ export async function getMarketingCronRunLog(
 }
 
 export async function runMarketingSendCron(options?: {
-  batchSize?: number;
+  fetchLimit?: number;
   delayMs?: number;
   now?: Date;
   supabase?: SupabaseClient;
 }): Promise<MarketingCronStats> {
   const supabase = options?.supabase ?? createAdminClient();
-  const batchSize = options?.batchSize ?? MARKETING_SEND_BATCH_SIZE;
+  const fetchLimit = options?.fetchLimit ?? MARKETING_SEND_FETCH_LIMIT;
   const delayMs = options?.delayMs ?? MARKETING_SEND_DELAY_MS;
   const now = options?.now ?? new Date();
   const startedAt = now.toISOString();
 
   const emails = await fetchDueMarketingScheduledEmails(
     supabase,
-    batchSize,
+    fetchLimit,
     now
   );
 
   let sent = 0;
   let skipped = 0;
   let failed = 0;
-  let limitReached = false;
   const errors: string[] = [];
   let processed = 0;
 
   for (let index = 0; index < emails.length; index++) {
     const email = emails[index];
-
-    if (!(await canSendMarketingEmail(supabase, now))) {
-      limitReached = true;
-      break;
-    }
 
     processed += 1;
 
@@ -462,9 +440,6 @@ export async function runMarketingSendCron(options?: {
         sent += 1;
       } else if (result.outcome === "skipped") {
         skipped += 1;
-      } else if (result.outcome === "limit_reached") {
-        limitReached = true;
-        break;
       } else {
         failed += 1;
         if (result.errorMessage) {
@@ -478,10 +453,6 @@ export async function runMarketingSendCron(options?: {
       errors.push(`${email.recipient_email}: ${message}`);
     }
 
-    if (limitReached) {
-      break;
-    }
-
     if (index < emails.length - 1) {
       await sleep(delayMs);
     }
@@ -493,14 +464,14 @@ export async function runMarketingSendCron(options?: {
     status:
       failed > 0 && sent + skipped === 0
         ? "failed"
-        : failed > 0 || limitReached
+        : failed > 0
           ? "partial"
           : "success",
     processed,
     sent,
     skipped,
     failed,
-    limitReached,
+    limitReached: false,
     errors,
     startedAt,
     finishedAt,
