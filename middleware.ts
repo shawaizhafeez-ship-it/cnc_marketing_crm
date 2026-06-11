@@ -9,10 +9,20 @@ function isPublicRoute(pathname: string): boolean {
   );
 }
 
+/** Cron routes authenticate via Authorization: Bearer CRON_SECRET, not session cookies. */
+function isCronRoute(pathname: string): boolean {
+  return pathname === "/api/cron" || pathname.startsWith("/api/cron/");
+}
+
 export async function middleware(request: NextRequest) {
   try {
-    const { supabaseResponse, user, invalidDomain } = await updateSession(request);
     const { pathname } = request.nextUrl;
+
+    if (isCronRoute(pathname)) {
+      return NextResponse.next();
+    }
+
+    const { supabaseResponse, user, invalidDomain } = await updateSession(request);
 
     if (invalidDomain) {
       const loginUrl = new URL("/login", request.url);
@@ -50,6 +60,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/cron|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
