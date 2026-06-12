@@ -7,6 +7,7 @@ import { logEmailSend } from "@/lib/email/log-email";
 import { RENEWAL_CC, sendEmail } from "@/lib/email/smtp";
 import type { CertificateSnapshot } from "@/lib/scheduling/renewal-schedule";
 import type { TemplateCertificate } from "@/lib/renewals/types";
+import { syncCertificatesFromSheet } from "@/lib/sheets/sync";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const RENEWAL_SEND_BATCH_SIZE = 20;
@@ -425,17 +426,63 @@ export async function getRenewalCronRunLog(
   return (data?.value as RenewalCronRunLog | null) ?? null;
 }
 
+async function syncSheetBeforeRenewalSend(
+  supabase: SupabaseClient
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const syncStats = await syncCertificatesFromSheet(supabase);
+    if (syncStats.status === "failed") {
+      return {
+        ok: false,
+        error:
+          syncStats.errors.join("; ") ||
+          "Google Sheets sync failed before renewal send",
+      };
+    }
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Google Sheets sync failed before renewal send",
+    };
+  }
+}
+
 export async function runRenewalSendCron(options?: {
   batchSize?: number;
   delayMs?: number;
   now?: Date;
   supabase?: SupabaseClient;
+  /** When true, skips the pre-send sheet pull (tests only). */
+  skipSheetSync?: boolean;
 }): Promise<RenewalCronStats> {
   const supabase = options?.supabase ?? createAdminClient();
   const batchSize = options?.batchSize ?? RENEWAL_SEND_BATCH_SIZE;
   const delayMs = options?.delayMs ?? RENEWAL_SEND_DELAY_MS;
   const now = options?.now ?? new Date();
   const startedAt = now.toISOString();
+
+  if (!options?.skipSheetSync) {
+    const syncResult = await syncSheetBeforeRenewalSend(supabase);
+    if (!syncResult.ok) {
+      const finishedAt = new Date().toISOString();
+      const stats: RenewalCronStats = {
+        status: "failed",
+        processed: 0,
+        sent: 0,
+        skipped: 0,
+        failed: 0,
+        errors: [`Sheet sync failed: ${syncResult.error}`],
+        startedAt,
+        finishedAt,
+      };
+      await saveRenewalCronRunLog(supabase, stats);
+      return stats;
+    }
+  }
 
   const emails = await fetchDueScheduledEmails(supabase, batchSize, now);
 
