@@ -1,6 +1,6 @@
 import { formatExpiryDisplay } from "@/lib/renewals/prepare-email-data";
 import type { CertificateRow } from "@/lib/renewals/types";
-import { RENEWAL_EMAIL_SUBJECT } from "@/lib/email/renewal-template";
+import { getRenewalSubjectForTouchpoint } from "@/lib/email/renewal-template";
 
 /**
  * Month-anchor renewal scheduling
@@ -145,7 +145,6 @@ export function buildScheduledEmails(
 ): ScheduledEmailInsert[] {
   const sendHourUtc = options.sendHourUtc ?? DEFAULT_SEND_HOUR_UTC;
   const now = options.now ?? new Date();
-  const subject = options.subject ?? RENEWAL_EMAIL_SUBJECT;
   const anchor = getMonthAnchor(targetYear, targetMonth);
   const grouped = groupByRecipient(certificates);
   const scheduled: ScheduledEmailInsert[] = [];
@@ -161,6 +160,9 @@ export function buildScheduledEmails(
       if (scheduledAt.getTime() <= now.getTime()) {
         continue;
       }
+
+      const subject =
+        options.subject ?? getRenewalSubjectForTouchpoint(touchpointNumber);
 
       scheduled.push({
         campaign_id: campaignId,
