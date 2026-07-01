@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   generateRenewalEmailHtml,
+  getRenewalSubjectForType,
   type RenewalEmailType,
 } from "@/lib/email/renewal-template";
 import { logEmailSend } from "@/lib/email/log-email";
@@ -266,6 +267,9 @@ export async function processScheduledRenewalEmail(
   const now = options.now ?? new Date();
   const nowIso = now.toISOString();
 
+  const emailType = touchpointToEmailType(email.touchpoint_number);
+  const subject = getRenewalSubjectForType(emailType);
+
   const { data: liveCerts, error: certError } = await supabase
     .from("certificates")
     .select("id, ops_status")
@@ -278,7 +282,7 @@ export async function processScheduledRenewalEmail(
       emailType: "renewal",
       recipientEmail: email.recipient_email,
       companyName: email.company_name,
-      subject: email.subject,
+      subject,
       certificateCount: email.certificate_ids.length,
       status: "failed",
       errorMessage,
@@ -308,7 +312,7 @@ export async function processScheduledRenewalEmail(
       emailType: "renewal",
       recipientEmail: email.recipient_email,
       companyName: email.company_name,
-      subject: email.subject,
+      subject,
       certificateCount: email.certificate_ids.length,
       status: "skipped",
       errorMessage: reason,
@@ -323,12 +327,11 @@ export async function processScheduledRenewalEmail(
     ? email.certificate_snapshot
     : [];
   const templateCerts = snapshotsToTemplateCertificates(snapshots);
-  const emailType = touchpointToEmailType(email.touchpoint_number);
   const html = generateRenewalEmailHtml(templateCerts, emailType);
 
   const sendResult = await sendFn({
     to: email.recipient_email,
-    subject: email.subject,
+    subject,
     html,
     cc: RENEWAL_CC,
     account: "renewal",
@@ -351,7 +354,7 @@ export async function processScheduledRenewalEmail(
       emailType: "renewal",
       recipientEmail: email.recipient_email,
       companyName: email.company_name,
-      subject: email.subject,
+      subject,
       certificateCount: email.certificate_ids.length,
       status: "sent",
       smtpMessageId: sendResult.messageId,
