@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   getRetryBackoffMs,
   isEligibleForRetry,
   isOpsDone,
+  processScheduledRenewalEmail,
   shouldSkipDueToOpsDone,
+  type ScheduledEmailRecord,
 } from "@/lib/email/send-renewal";
 
 describe("isOpsDone", () => {
@@ -104,5 +106,111 @@ describe("retry backoff", () => {
         updated_at: "2026-03-15T09:00:00.000Z",
       })
     ).toBe(false);
+  });
+});
+
+/**
+ * Minimal chainable Supabase stub covering the calls processScheduledRenewalEmail
+ * makes: certificates select→in, scheduled_emails update→eq, renewal_campaigns
+ * select→eq→single + update→eq, and email_logs insert.
+ */
+function makeSupabaseStub(liveCerts: Array<{ id: string; ops_status: string }>) {
+  const inserts: Array<{ table: string; row: Record<string, unknown> }> = [];
+
+  const from = (table: string) => {
+    const builder: Record<string, unknown> = {
+      select: () => builder,
+      update: () => builder,
+      in: () => Promise.resolve({ data: liveCerts, error: null }),
+      single: () =>
+        Promise.resolve({ data: { emails_sent: 0 }, error: null }),
+      eq: () => builder,
+      insert: (row: Record<string, unknown>) => {
+        inserts.push({ table, row });
+        return Promise.resolve({ error: null });
+      },
+    };
+    return builder;
+  };
+
+  return { supabase: { from } as never, inserts };
+}
+
+function whatsappRecord(
+  overrides: Partial<ScheduledEmailRecord> = {}
+): ScheduledEmailRecord {
+  return {
+    id: "se-1",
+    campaign_id: "camp-1",
+    touchpoint_number: 1,
+    recipient_email: "a@example.com",
+    company_name: "ACME",
+    certificate_ids: ["cert-1"],
+    certificate_snapshot: [
+      {
+        id: "cert-1",
+        certificate_no: "C1",
+        company_name: "ACME",
+        item: "PPE",
+        expiry_date: "2026-03-16",
+        expiry_display: "16 March 2026",
+        renewal_amount: 50,
+        recipient_email: "a@example.com",
+      },
+    ],
+    subject: "ignored",
+    scheduled_at: "2026-02-14T09:00:00.000Z",
+    status: "pending",
+    retry_count: 0,
+    max_retries: 3,
+    updated_at: "2026-02-14T09:00:00.000Z",
+    channel: "whatsapp",
+    recipient_phone: "923001234567",
+    ...overrides,
+  };
+}
+
+describe("processScheduledRenewalEmail — WhatsApp channel", () => {
+  it("sends via WhatsApp (not email) and logs channel=whatsapp", async () => {
+    const { supabase, inserts } = makeSupabaseStub([
+      { id: "cert-1", ops_status: "active" },
+    ]);
+    const sendFn = vi.fn();
+    const sendWhatsAppFn = vi
+      .fn()
+      .mockResolvedValue({ success: true, messageId: "wamid.123" });
+
+    const result = await processScheduledRenewalEmail(supabase, whatsappRecord(), {
+      sendFn,
+      sendWhatsAppFn,
+    });
+
+    expect(result.outcome).toBe("sent");
+    expect(sendWhatsAppFn).toHaveBeenCalledOnce();
+    expect(sendFn).not.toHaveBeenCalled();
+
+    const call = sendWhatsAppFn.mock.calls[0][0];
+    expect(call.to).toBe("923001234567");
+    expect(call.bodyParams[0]).toBe("ACME");
+
+    const log = inserts.find((i) => i.table === "email_logs");
+    expect(log?.row.channel).toBe("whatsapp");
+  });
+
+  it("fails cleanly when a whatsapp row has no phone", async () => {
+    const { supabase } = makeSupabaseStub([
+      { id: "cert-1", ops_status: "active" },
+    ]);
+    const sendWhatsAppFn = vi.fn();
+
+    const result = await processScheduledRenewalEmail(
+      supabase,
+      whatsappRecord({ recipient_phone: null }),
+      { sendWhatsAppFn }
+    );
+
+    expect(result.outcome).toBe("failed");
+    expect(result.errorMessage).toContain("No WhatsApp number");
+    expect(sendWhatsAppFn).not.toHaveBeenCalled();
   });
 });

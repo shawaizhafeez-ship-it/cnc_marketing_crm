@@ -6,7 +6,19 @@ import {
 } from "@/lib/email/renewal-template";
 import { logEmailSend } from "@/lib/email/log-email";
 import { RENEWAL_CC, sendEmail } from "@/lib/email/smtp";
-import type { CertificateSnapshot } from "@/lib/scheduling/renewal-schedule";
+import {
+  sendWhatsAppTemplate,
+  type SendWhatsAppTemplateFn,
+} from "@/lib/whatsapp/send";
+import {
+  buildRenewalWhatsAppParams,
+  getWhatsAppTemplateForType,
+  WHATSAPP_LANGUAGE_CODE,
+} from "@/lib/whatsapp/renewal-template";
+import type {
+  CertificateSnapshot,
+  DeliveryChannel,
+} from "@/lib/scheduling/renewal-schedule";
 import type { TemplateCertificate } from "@/lib/renewals/types";
 import { syncCertificatesFromSheet } from "@/lib/sheets/sync";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -30,6 +42,8 @@ export type ScheduledEmailRecord = {
   retry_count: number;
   max_retries: number;
   updated_at: string;
+  channel: DeliveryChannel;
+  recipient_phone: string | null;
 };
 
 export type ProcessRenewalEmailResult = {
@@ -168,6 +182,8 @@ export async function fetchDueScheduledEmails(
       retry_count,
       max_retries,
       updated_at,
+      channel,
+      recipient_phone,
       renewal_campaigns!inner (
         status
       )
@@ -207,6 +223,8 @@ export async function fetchDueScheduledEmails(
       retry_count,
       max_retries,
       updated_at,
+      channel,
+      recipient_phone,
       renewal_campaigns!inner (
         status
       )
@@ -255,20 +273,49 @@ async function incrementCampaignEmailsSent(
   }
 }
 
+/** Send a renewal touchpoint over WhatsApp, normalizing to the sendEmail result shape. */
+async function sendViaWhatsApp(
+  email: ScheduledEmailRecord,
+  templateCerts: TemplateCertificate[],
+  emailType: RenewalEmailType,
+  sendWhatsAppFn: SendWhatsAppTemplateFn
+): Promise<{ success: true; messageId: string } | { success: false; error: string }> {
+  if (!email.recipient_phone) {
+    return {
+      success: false,
+      error: "No WhatsApp number for recipient",
+    };
+  }
+
+  return sendWhatsAppFn({
+    to: email.recipient_phone,
+    templateName: getWhatsAppTemplateForType(emailType),
+    bodyParams: buildRenewalWhatsAppParams(
+      templateCerts,
+      email.company_name,
+      emailType
+    ),
+    languageCode: WHATSAPP_LANGUAGE_CODE,
+  });
+}
+
 export async function processScheduledRenewalEmail(
   supabase: SupabaseClient,
   email: ScheduledEmailRecord,
   options: {
     sendFn?: SendEmailFn;
+    sendWhatsAppFn?: SendWhatsAppTemplateFn;
     now?: Date;
   } = {}
 ): Promise<ProcessRenewalEmailResult> {
   const sendFn = options.sendFn ?? sendEmail;
+  const sendWhatsAppFn = options.sendWhatsAppFn ?? sendWhatsAppTemplate;
   const now = options.now ?? new Date();
   const nowIso = now.toISOString();
 
   const emailType = touchpointToEmailType(email.touchpoint_number);
   const subject = getRenewalSubjectForType(emailType);
+  const channel = email.channel ?? "email";
 
   const { data: liveCerts, error: certError } = await supabase
     .from("certificates")
@@ -288,6 +335,8 @@ export async function processScheduledRenewalEmail(
       errorMessage,
       campaignId: email.campaign_id,
       scheduledEmailId: email.id,
+      channel,
+      recipientPhone: email.recipient_phone ?? undefined,
     });
     return { outcome: "failed", errorMessage };
   }
@@ -318,6 +367,8 @@ export async function processScheduledRenewalEmail(
       errorMessage: reason,
       campaignId: email.campaign_id,
       scheduledEmailId: email.id,
+      channel,
+      recipientPhone: email.recipient_phone ?? undefined,
     });
 
     return { outcome: "skipped" };
@@ -327,15 +378,17 @@ export async function processScheduledRenewalEmail(
     ? email.certificate_snapshot
     : [];
   const templateCerts = snapshotsToTemplateCertificates(snapshots);
-  const html = generateRenewalEmailHtml(templateCerts, emailType);
 
-  const sendResult = await sendFn({
-    to: email.recipient_email,
-    subject,
-    html,
-    cc: RENEWAL_CC,
-    account: "renewal",
-  });
+  const sendResult =
+    channel === "whatsapp"
+      ? await sendViaWhatsApp(email, templateCerts, emailType, sendWhatsAppFn)
+      : await sendFn({
+          to: email.recipient_email,
+          subject,
+          html: generateRenewalEmailHtml(templateCerts, emailType),
+          cc: RENEWAL_CC,
+          account: "renewal",
+        });
 
   if (sendResult.success) {
     await supabase
@@ -360,6 +413,8 @@ export async function processScheduledRenewalEmail(
       smtpMessageId: sendResult.messageId,
       campaignId: email.campaign_id,
       scheduledEmailId: email.id,
+      channel,
+      recipientPhone: email.recipient_phone ?? undefined,
     });
 
     return { outcome: "sent", messageId: sendResult.messageId };
@@ -371,12 +426,14 @@ export async function processScheduledRenewalEmail(
     emailType: "renewal",
     recipientEmail: email.recipient_email,
     companyName: email.company_name,
-    subject: email.subject,
+    subject,
     certificateCount: email.certificate_ids.length,
     status: "failed",
     errorMessage: sendResult.error,
     campaignId: email.campaign_id,
     scheduledEmailId: email.id,
+    channel,
+    recipientPhone: email.recipient_phone ?? undefined,
   });
 
   return { outcome: "failed", errorMessage: sendResult.error };

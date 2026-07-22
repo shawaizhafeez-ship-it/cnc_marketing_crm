@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getMaskedSmtpConfigs } from "@/lib/email/smtp-display";
+import { getWhatsAppDisplayConfig } from "@/lib/whatsapp/display";
 import {
   getRenewalCronRunLog,
   runRenewalSendCron,
@@ -208,6 +209,7 @@ export async function getSettingsPageData(): Promise<SettingsPageData> {
 
   return {
     smtp: getMaskedSmtpConfigs(),
+    whatsapp: getWhatsAppDisplayConfig(),
     googleSheet,
     touchpoints: appSettings.touchpoints,
     sheetConfig,

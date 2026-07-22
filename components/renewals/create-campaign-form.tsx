@@ -48,6 +48,7 @@ export function CreateCampaignForm({
   const [previewPending, startPreview] = useTransition();
   const [month, setMonth] = useState(defaultMonth);
   const [year, setYear] = useState(defaultYear);
+  const [channel, setChannel] = useState<"email" | "whatsapp" | "both">("email");
   const [preview, setPreview] = useState<PreviewData | null>(null);
 
   const months =
@@ -62,13 +63,13 @@ export function CreateCampaignForm({
   useEffect(() => {
     startPreview(async () => {
       try {
-        const data = await getRenewalCampaignPreview(month, year);
+        const data = await getRenewalCampaignPreview(month, year, channel);
         setPreview(data);
       } catch {
         setPreview(null);
       }
     });
-  }, [month, year]);
+  }, [month, year, channel]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -84,6 +85,7 @@ export function CreateCampaignForm({
           <form action={formAction} className="space-y-4">
             <input type="hidden" name="month" value={month} />
             <input type="hidden" name="year" value={year} />
+            <input type="hidden" name="channel" value={channel} />
 
             <div className="space-y-2">
               <Label htmlFor="name">Campaign name</Label>
@@ -139,6 +141,26 @@ export function CreateCampaignForm({
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="channel-select">Delivery channel</Label>
+              <select
+                id="channel-select"
+                value={channel}
+                onChange={(e) =>
+                  setChannel(e.target.value as "email" | "whatsapp" | "both")
+                }
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+              >
+                <option value="email">Email only</option>
+                <option value="whatsapp">WhatsApp only</option>
+                <option value="both">Email + WhatsApp</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                WhatsApp uses the recipient&apos;s TEL number from the sheet.
+                Recipients without a number are skipped for WhatsApp.
+              </p>
+            </div>
+
             {state.error && (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {state.error}
@@ -179,9 +201,33 @@ export function CreateCampaignForm({
                   <dd className="font-medium">{preview.summary.totalCertificates}</dd>
                   <dt className="text-muted-foreground">Recipients</dt>
                   <dd className="font-medium">{preview.summary.totalRecipients}</dd>
-                  <dt className="text-muted-foreground">Emails scheduled</dt>
+                  <dt className="text-muted-foreground">Total scheduled</dt>
                   <dd className="font-medium">{preview.summary.totalEmailsScheduled}</dd>
+                  {channel !== "whatsapp" && (
+                    <>
+                      <dt className="text-muted-foreground">· Email</dt>
+                      <dd className="font-medium">
+                        {preview.summary.channelCounts.email}
+                      </dd>
+                    </>
+                  )}
+                  {channel !== "email" && (
+                    <>
+                      <dt className="text-muted-foreground">· WhatsApp</dt>
+                      <dd className="font-medium">
+                        {preview.summary.channelCounts.whatsapp}
+                      </dd>
+                    </>
+                  )}
                 </div>
+
+                {channel !== "email" && preview.recipientsMissingPhone > 0 && (
+                  <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                    {preview.recipientsMissingPhone} recipient
+                    {preview.recipientsMissingPhone === 1 ? "" : "s"} have no
+                    WhatsApp number and will be skipped for WhatsApp.
+                  </div>
+                )}
 
                 <div className="border-t pt-3">
                   <p className="mb-2 font-medium">Touchpoint dates</p>

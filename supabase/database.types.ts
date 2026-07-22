@@ -44,6 +44,7 @@ export type Database = {
           renewal_amount: number | null;
           ops_status: string;
           contact_person: string | null;
+          phone: string | null;
           sheet_row_hash: string | null;
           last_synced_at: string;
           created_at: string;
@@ -59,6 +60,7 @@ export type Database = {
           renewal_amount?: number | null;
           ops_status?: string;
           contact_person?: string | null;
+          phone?: string | null;
           sheet_row_hash?: string | null;
           last_synced_at?: string;
           created_at?: string;
@@ -74,6 +76,7 @@ export type Database = {
           renewal_amount?: number | null;
           ops_status?: string;
           contact_person?: string | null;
+          phone?: string | null;
           sheet_row_hash?: string | null;
           last_synced_at?: string;
           created_at?: string;
@@ -224,6 +227,7 @@ export type Database = {
           sent_by: string | null;
           sent_at: string;
           metadata: Json;
+          channel: Database["public"]["Enums"]["delivery_channel"];
         };
         Insert: {
           id?: string;
@@ -240,6 +244,7 @@ export type Database = {
           sent_by?: string | null;
           sent_at?: string;
           metadata?: Json;
+          channel?: Database["public"]["Enums"]["delivery_channel"];
         };
         Update: {
           id?: string;
@@ -256,6 +261,7 @@ export type Database = {
           sent_by?: string | null;
           sent_at?: string;
           metadata?: Json;
+          channel?: Database["public"]["Enums"]["delivery_channel"];
         };
         Relationships: [
           {
@@ -625,6 +631,8 @@ export type Database = {
           max_retries: number;
           created_at: string;
           updated_at: string;
+          channel: Database["public"]["Enums"]["delivery_channel"];
+          recipient_phone: string | null;
         };
         Insert: {
           id?: string;
@@ -643,6 +651,8 @@ export type Database = {
           max_retries?: number;
           created_at?: string;
           updated_at?: string;
+          channel?: Database["public"]["Enums"]["delivery_channel"];
+          recipient_phone?: string | null;
         };
         Update: {
           id?: string;
@@ -661,6 +671,8 @@ export type Database = {
           max_retries?: number;
           created_at?: string;
           updated_at?: string;
+          channel?: Database["public"]["Enums"]["delivery_channel"];
+          recipient_phone?: string | null;
         };
         Relationships: [
           {
@@ -799,6 +811,7 @@ export type Database = {
         | "product_update"
         | "compliance_alert"
         | "general";
+      delivery_channel: "email" | "whatsapp";
       email_status:
         | "pending"
         | "sent"

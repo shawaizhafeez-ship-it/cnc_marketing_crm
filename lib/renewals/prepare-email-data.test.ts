@@ -18,6 +18,7 @@ const sampleCerts: CertificateRow[] = [
     renewal_amount: 50,
     ops_status: "",
     contact_person: null,
+    phone: null,
   },
   {
     id: "2",
@@ -29,6 +30,7 @@ const sampleCerts: CertificateRow[] = [
     renewal_amount: 30,
     ops_status: "",
     contact_person: null,
+    phone: null,
   },
   {
     id: "3",
@@ -40,6 +42,7 @@ const sampleCerts: CertificateRow[] = [
     renewal_amount: 40,
     ops_status: "done",
     contact_person: null,
+    phone: null,
   },
 ];
 

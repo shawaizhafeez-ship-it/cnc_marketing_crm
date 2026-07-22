@@ -38,7 +38,7 @@ async function fetchAllActiveCertificates(
   const { data, error } = await supabase
     .from("certificates")
     .select(
-      "id, certificate_no, company_name, item, expiry_date, recipient_email, renewal_amount, ops_status, contact_person"
+      "id, certificate_no, company_name, item, expiry_date, recipient_email, renewal_amount, ops_status, contact_person, phone"
     )
     .neq("ops_status", "done")
     .order("expiry_date", { ascending: true });

@@ -1,4 +1,4 @@
-import { Mail, Settings, Sheet, Clock } from "lucide-react";
+import { Mail, MessageCircle, Settings, Sheet, Clock } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { SendRenewalsButton } from "@/components/shared/send-renewals-button";
 import { SyncSheetsButton } from "@/components/shared/sync-sheets-button";
@@ -94,6 +94,7 @@ export default async function SettingsPage() {
 
   const {
     smtp,
+    whatsapp,
     googleSheet,
     touchpoints,
     sheetConfig,
@@ -132,6 +133,65 @@ export default async function SettingsPage() {
           passwordConfigured: false,
           cc: ["admin@cncservices.net"],
         }} />
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+              <MessageCircle className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <CardTitle>WhatsApp (Meta Cloud API)</CardTitle>
+            <CardDescription>
+              Second renewal channel. Credentials live in server environment
+              variables; messages use pre-approved templates.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid gap-2 text-sm sm:grid-cols-2">
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Status</dt>
+                <dd className="font-medium">
+                  {whatsapp?.configured ? "Configured" : "Not configured"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Phone number ID</dt>
+                <dd className="font-mono text-xs">
+                  {whatsapp?.phoneNumberIdMasked ?? "—"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Access token</dt>
+                <dd className="font-medium">
+                  {whatsapp?.tokenConfigured
+                    ? "•••••••• (configured)"
+                    : "Not configured"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">API version</dt>
+                <dd className="font-medium">{whatsapp?.apiVersion ?? "—"}</dd>
+              </div>
+            </dl>
+            {whatsapp && (
+              <div className="mt-4 border-t pt-3 text-sm">
+                <p className="mb-2 font-medium">Approved templates</p>
+                <ul className="space-y-1 font-mono text-xs text-muted-foreground">
+                  <li>gentle → {whatsapp.templates.gentle}</li>
+                  <li>urgent → {whatsapp.templates.urgent}</li>
+                  <li>final → {whatsapp.templates.final}</li>
+                </ul>
+              </div>
+            )}
+            {!whatsapp?.configured && (
+              <p className="mt-4 text-xs text-muted-foreground">
+                Set <code className="rounded bg-muted px-1">WHATSAPP_PHONE_NUMBER_ID</code>{" "}
+                and <code className="rounded bg-muted px-1">WHATSAPP_ACCESS_TOKEN</code>{" "}
+                in your environment, and create the three approved templates in
+                Meta Business Manager.
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

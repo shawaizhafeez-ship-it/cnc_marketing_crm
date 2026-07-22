@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   buildScheduledEmails,
+  countRecipientsMissingPhone,
   DEFAULT_SEND_HOUR_UTC,
   getAnchorDateString,
   getTouchpointPreviews,
   summarizeScheduledEmails,
+  type DeliveryChannel,
 } from "@/lib/scheduling/renewal-schedule";
 import {
   filterActiveCertificates,
@@ -46,7 +48,7 @@ async function fetchActiveCertificates(
   const { data, error } = await supabase
     .from("certificates")
     .select(
-      "id, certificate_no, company_name, item, expiry_date, recipient_email, renewal_amount, ops_status, contact_person"
+      "id, certificate_no, company_name, item, expiry_date, recipient_email, renewal_amount, ops_status, contact_person, phone"
     )
     .order("expiry_date", { ascending: true });
 
@@ -75,6 +77,15 @@ function validateMonthYear(month: number, year: number) {
   if (year < 2020 || year > 2100) throw new Error("Invalid year.");
 }
 
+export type CampaignChannelOption = "email" | "whatsapp" | "both";
+
+/** Map the campaign form's channel choice to the schedule builder's channel list. */
+function parseChannels(value: string): DeliveryChannel[] {
+  if (value === "whatsapp") return ["whatsapp"];
+  if (value === "both") return ["email", "whatsapp"];
+  return ["email"];
+}
+
 function filterCampaignCertificates(
   certificates: CertificateRow[],
   month: number,
@@ -87,13 +98,18 @@ function filterCampaignCertificates(
   );
 }
 
-export async function getRenewalCampaignPreview(month: number, year: number) {
+export async function getRenewalCampaignPreview(
+  month: number,
+  year: number,
+  channel: CampaignChannelOption = "email"
+) {
   validateMonthYear(month, year);
   const { supabase } = await requireUser();
   const sendHourUtc = await getSendHourUtc(supabase);
   const certificates = await fetchActiveCertificates(supabase);
   const filtered = filterCampaignCertificates(certificates, month, year);
   const options = getAvailableMonthsYears(certificates);
+  const channels = parseChannels(channel);
 
   const touchpoints = getTouchpointPreviews(year, month, sendHourUtc);
   const draftScheduled = buildScheduledEmails(
@@ -101,18 +117,23 @@ export async function getRenewalCampaignPreview(month: number, year: number) {
     "preview",
     year,
     month,
-    { sendHourUtc }
+    { sendHourUtc, channels }
   );
   const summary = summarizeScheduledEmails(filtered, draftScheduled);
+  const recipientsMissingPhone = channels.includes("whatsapp")
+    ? countRecipientsMissingPhone(filtered)
+    : 0;
 
   return {
     month,
     year,
+    channel,
     anchorDate: getAnchorDateString(year, month),
     touchpoints,
     sendHourUtc,
     certificates: filtered,
     summary,
+    recipientsMissingPhone,
     options,
   };
 }
@@ -125,6 +146,7 @@ export async function createRenewalCampaign(
   const description = String(formData.get("description") ?? "").trim();
   const month = Number.parseInt(String(formData.get("month")), 10);
   const year = Number.parseInt(String(formData.get("year")), 10);
+  const channels = parseChannels(String(formData.get("channel") ?? "email"));
 
   if (!name) {
     return { error: "Campaign name is required." };
@@ -153,13 +175,13 @@ export async function createRenewalCampaign(
     campaignId,
     year,
     month,
-    { sendHourUtc }
+    { sendHourUtc, channels }
   );
 
   if (scheduledEmails.length === 0) {
     return {
       error:
-        "All touchpoint dates for this month are in the past. No emails to schedule.",
+        "All touchpoint dates for this month are in the past. No messages to schedule.",
     };
   }
 

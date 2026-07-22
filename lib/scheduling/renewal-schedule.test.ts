@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   buildScheduledEmails,
+  countRecipientsMissingPhone,
   getAnchorDateString,
   getMonthAnchor,
   getTouchpointDate,
   getTouchpointPreviews,
+  summarizeScheduledEmails,
   TOUCHPOINT_OFFSETS,
 } from "@/lib/scheduling/renewal-schedule";
 import type { CertificateRow } from "@/lib/renewals/types";
@@ -89,6 +91,7 @@ describe("renewal-schedule", () => {
         renewal_amount: 50,
         ops_status: "",
         contact_person: null,
+        phone: null,
       },
       {
         id: "a2",
@@ -100,6 +103,7 @@ describe("renewal-schedule", () => {
         renewal_amount: 30,
         ops_status: "",
         contact_person: null,
+        phone: null,
       },
       {
         id: "b1",
@@ -111,6 +115,7 @@ describe("renewal-schedule", () => {
         renewal_amount: 40,
         ops_status: "",
         contact_person: null,
+        phone: null,
       },
     ];
 
@@ -159,6 +164,70 @@ describe("renewal-schedule", () => {
         { now }
       );
       expect(scheduled).toHaveLength(0);
+    });
+  });
+
+  describe("multi-channel scheduling", () => {
+    const now = new Date("2026-01-01T00:00:00.000Z");
+    const withPhone: CertificateRow = {
+      id: "p1",
+      certificate_no: "P1",
+      company_name: "Phoned Co",
+      item: "PPE",
+      expiry_date: "2026-03-16",
+      recipient_email: "phone@example.com",
+      renewal_amount: 50,
+      ops_status: "",
+      contact_person: null,
+      phone: "923001234567",
+    };
+    const noPhone: CertificateRow = {
+      ...withPhone,
+      id: "n1",
+      certificate_no: "N1",
+      recipient_email: "nophone@example.com",
+      phone: null,
+    };
+
+    it("defaults to email-only (channel set, no phone)", () => {
+      const scheduled = buildScheduledEmails([withPhone], "c", 2026, 3, { now });
+      expect(scheduled).toHaveLength(3);
+      expect(scheduled.every((s) => s.channel === "email")).toBe(true);
+      expect(scheduled.every((s) => s.recipient_phone === null)).toBe(true);
+    });
+
+    it("emits 6 rows for 'both' when the recipient has a phone", () => {
+      const scheduled = buildScheduledEmails([withPhone], "c", 2026, 3, {
+        now,
+        channels: ["email", "whatsapp"],
+      });
+      expect(scheduled).toHaveLength(6);
+      const wa = scheduled.filter((s) => s.channel === "whatsapp");
+      expect(wa).toHaveLength(3);
+      expect(wa.every((s) => s.recipient_phone === "923001234567")).toBe(true);
+    });
+
+    it("skips whatsapp rows for recipients without a phone", () => {
+      const scheduled = buildScheduledEmails([noPhone], "c", 2026, 3, {
+        now,
+        channels: ["email", "whatsapp"],
+      });
+      // email TP1-3 only; no whatsapp rows
+      expect(scheduled).toHaveLength(3);
+      expect(scheduled.every((s) => s.channel === "email")).toBe(true);
+    });
+
+    it("summarizes per-channel counts", () => {
+      const scheduled = buildScheduledEmails([withPhone], "c", 2026, 3, {
+        now,
+        channels: ["email", "whatsapp"],
+      });
+      const summary = summarizeScheduledEmails([withPhone], scheduled);
+      expect(summary.channelCounts).toEqual({ email: 3, whatsapp: 3 });
+    });
+
+    it("counts recipients missing a phone", () => {
+      expect(countRecipientsMissingPhone([withPhone, noPhone])).toBe(1);
     });
   });
 
