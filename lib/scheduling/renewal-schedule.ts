@@ -19,6 +19,8 @@ import { getRenewalSubjectForTouchpoint } from "@/lib/email/renewal-template";
 
 export type TouchpointNumber = 1 | 2 | 3;
 
+export type DeliveryChannel = "email" | "whatsapp";
+
 export const TOUCHPOINT_OFFSETS: Record<TouchpointNumber, number> = {
   1: -15,
   2: 14,
@@ -48,6 +50,8 @@ export type ScheduledEmailInsert = {
   subject: string;
   scheduled_at: string;
   status: "pending";
+  channel: DeliveryChannel;
+  recipient_phone: string | null;
 };
 
 export type TouchpointPreview = {
@@ -60,6 +64,8 @@ export type BuildScheduledEmailsOptions = {
   sendHourUtc?: number;
   now?: Date;
   subject?: string;
+  /** Channels to schedule per recipient. Defaults to email-only. */
+  channels?: DeliveryChannel[];
 };
 
 export function getMonthAnchor(year: number, month: number): Date {
@@ -136,6 +142,15 @@ function groupByRecipient(
   return map;
 }
 
+/** First usable (normalized) phone number within a recipient's certificate group. */
+function firstPhone(certs: CertificateRow[]): string | null {
+  for (const cert of certs) {
+    const phone = cert.phone?.trim();
+    if (phone) return phone;
+  }
+  return null;
+}
+
 export function buildScheduledEmails(
   certificates: CertificateRow[],
   campaignId: string,
@@ -145,6 +160,7 @@ export function buildScheduledEmails(
 ): ScheduledEmailInsert[] {
   const sendHourUtc = options.sendHourUtc ?? DEFAULT_SEND_HOUR_UTC;
   const now = options.now ?? new Date();
+  const channels = options.channels ?? ["email"];
   const anchor = getMonthAnchor(targetYear, targetMonth);
   const grouped = groupByRecipient(certificates);
   const scheduled: ScheduledEmailInsert[] = [];
@@ -153,32 +169,58 @@ export function buildScheduledEmails(
     const companyName = certs[0]?.company_name ?? recipientEmail;
     const certificateIds = certs.map((c) => c.id);
     const snapshot = certs.map(toSnapshot);
+    const phone = firstPhone(certs);
 
-    for (const touchpointNumber of [1, 2, 3] as TouchpointNumber[]) {
-      const scheduledAt = getTouchpointDate(anchor, touchpointNumber, sendHourUtc);
-
-      if (scheduledAt.getTime() <= now.getTime()) {
+    for (const channel of channels) {
+      // WhatsApp needs a destination number; skip recipients without one.
+      if (channel === "whatsapp" && !phone) {
         continue;
       }
 
-      const subject =
-        options.subject ?? getRenewalSubjectForTouchpoint(touchpointNumber);
+      for (const touchpointNumber of [1, 2, 3] as TouchpointNumber[]) {
+        const scheduledAt = getTouchpointDate(
+          anchor,
+          touchpointNumber,
+          sendHourUtc
+        );
 
-      scheduled.push({
-        campaign_id: campaignId,
-        touchpoint_number: touchpointNumber,
-        recipient_email: recipientEmail,
-        company_name: companyName,
-        certificate_ids: certificateIds,
-        certificate_snapshot: snapshot,
-        subject,
-        scheduled_at: scheduledAt.toISOString(),
-        status: "pending",
-      });
+        if (scheduledAt.getTime() <= now.getTime()) {
+          continue;
+        }
+
+        const subject =
+          options.subject ?? getRenewalSubjectForTouchpoint(touchpointNumber);
+
+        scheduled.push({
+          campaign_id: campaignId,
+          touchpoint_number: touchpointNumber,
+          recipient_email: recipientEmail,
+          company_name: companyName,
+          certificate_ids: certificateIds,
+          certificate_snapshot: snapshot,
+          subject,
+          scheduled_at: scheduledAt.toISOString(),
+          status: "pending",
+          channel,
+          recipient_phone: channel === "whatsapp" ? phone : null,
+        });
+      }
     }
   }
 
   return scheduled;
+}
+
+/** Recipients (by email) that have no usable WhatsApp number — for UI warnings. */
+export function countRecipientsMissingPhone(
+  certificates: CertificateRow[]
+): number {
+  const grouped = groupByRecipient(certificates);
+  let missing = 0;
+  for (const certs of grouped.values()) {
+    if (!firstPhone(certs)) missing += 1;
+  }
+  return missing;
 }
 
 export function summarizeScheduledEmails(
@@ -186,11 +228,17 @@ export function summarizeScheduledEmails(
   scheduledEmails: ScheduledEmailInsert[]
 ) {
   const recipients = new Set(scheduledEmails.map((e) => e.recipient_email));
+  const emailRows = scheduledEmails.filter((e) => e.channel === "email");
+  const whatsappRows = scheduledEmails.filter((e) => e.channel === "whatsapp");
 
   return {
     totalCertificates: certificates.length,
     totalRecipients: recipients.size,
     totalEmailsScheduled: scheduledEmails.length,
+    channelCounts: {
+      email: emailRows.length,
+      whatsapp: whatsappRows.length,
+    },
     touchpointCounts: {
       1: scheduledEmails.filter((e) => e.touchpoint_number === 1).length,
       2: scheduledEmails.filter((e) => e.touchpoint_number === 2).length,

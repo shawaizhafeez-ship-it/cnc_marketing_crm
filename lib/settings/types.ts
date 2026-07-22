@@ -2,6 +2,7 @@ import type { SmtpDisplayConfig } from "@/lib/email/smtp-display";
 import type { RenewalCronRunLog } from "@/lib/email/send-renewal";
 import type { MarketingCronRunLog } from "@/lib/email/send-marketing";
 import type { SheetConfig } from "@/lib/sheets/types";
+import type { WhatsAppDisplayConfig } from "@/lib/whatsapp/display";
 
 export type RenewalTouchpointSettings = {
   offsets: number[];
@@ -57,6 +58,7 @@ export const REQUIRED_SHEET_COLUMNS = [
   "E-MAIL",
   "Renewal Amount",
   "Ops Status",
+  "TEL (for WhatsApp)",
 ] as const;
 
 export type SettingsPageData = {
@@ -64,6 +66,7 @@ export type SettingsPageData = {
     renewal: SmtpDisplayConfig;
     marketing: SmtpDisplayConfig;
   };
+  whatsapp: WhatsAppDisplayConfig;
   googleSheet: GoogleSheetSettings | null;
   touchpoints: RenewalTouchpointSettings | null;
   sheetConfig: SheetConfig | null;

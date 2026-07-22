@@ -12,6 +12,10 @@ type LogEmailParams = {
   sentBy?: string;
   campaignId?: string;
   scheduledEmailId?: string;
+  /** Delivery channel. Defaults to email. */
+  channel?: "email" | "whatsapp";
+  /** WhatsApp destination number (E.164) — stored in metadata for the audit trail. */
+  recipientPhone?: string;
 };
 
 export async function logEmailSend(
@@ -30,5 +34,9 @@ export async function logEmailSend(
     error_message: params.errorMessage ?? null,
     smtp_message_id: params.smtpMessageId ?? null,
     sent_by: params.sentBy ?? null,
+    channel: params.channel ?? "email",
+    metadata: params.recipientPhone
+      ? { recipient_phone: params.recipientPhone }
+      : {},
   });
 }

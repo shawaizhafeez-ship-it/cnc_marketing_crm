@@ -8,6 +8,7 @@ import type {
   SyncWarning,
 } from "@/lib/sheets/types";
 import { SHEET_COLUMNS } from "@/lib/sheets/types";
+import { normalizeToE164 } from "@/lib/whatsapp/phone";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 function trim(value: string | undefined | null): string {
@@ -40,6 +41,7 @@ function computeRowHash(data: Omit<CertificateUpsert, "last_synced_at">): string
     renewal_amount: data.renewal_amount,
     ops_status: data.ops_status,
     contact_person: data.contact_person,
+    phone: data.phone,
   });
   return createHash("sha256").update(payload).digest("hex");
 }
@@ -103,6 +105,7 @@ export function mapSheetRowToCertificate(
     renewal_amount: parseRenewalAmount(getCell(row, SHEET_COLUMNS.RENEWAL_AMOUNT)),
     ops_status: getCell(row, SHEET_COLUMNS.OPS_STATUS),
     contact_person: getCell(row, SHEET_COLUMNS.CONTACT_PERSON) || null,
+    phone: normalizeToE164(getCell(row, SHEET_COLUMNS.TEL)),
     sheet_row_hash: "",
     last_synced_at: now,
   };
@@ -217,6 +220,7 @@ export async function syncCertificatesFromSheet(
           renewal_amount: cert.renewal_amount,
           ops_status: cert.ops_status,
           contact_person: cert.contact_person,
+          phone: cert.phone,
           sheet_row_hash: cert.sheet_row_hash,
           last_synced_at: cert.last_synced_at,
         })),

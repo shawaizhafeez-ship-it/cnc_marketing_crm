@@ -11,6 +11,7 @@ export const SHEET_COLUMNS = {
   RENEWAL_AMOUNT: "Renewal Amount",
   OPS_STATUS: "Ops Status",
   CONTACT_PERSON: "Contact Person",
+  TEL: "TEL",
 } as const;
 
 export type CertificateUpsert = {
@@ -22,6 +23,7 @@ export type CertificateUpsert = {
   renewal_amount: number | null;
   ops_status: string;
   contact_person: string | null;
+  phone: string | null;
   sheet_row_hash: string;
   last_synced_at: string;
 };

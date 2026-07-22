@@ -8,6 +8,7 @@ export type CertificateRow = {
   renewal_amount: number | null;
   ops_status: string;
   contact_person: string | null;
+  phone: string | null;
 };
 
 export type TemplateCertificate = {
