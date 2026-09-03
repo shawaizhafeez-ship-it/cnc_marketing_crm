@@ -28,7 +28,7 @@ type Props = {
 export function LeadsChart({ data }: Props) {
   const dataByLabel = new Map(data.map((d) => [d.label, d]));
 
-  function CustomTooltip({ active, label }: any) {
+  function CustomTooltip({ active, label }: { active?: boolean; label?: string }) {
     if (!active || !label) return null;
     const row = dataByLabel.get(label);
     if (!row) return null;

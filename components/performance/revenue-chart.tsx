@@ -29,10 +29,10 @@ function fmt(v: number) {
   return v > 0 ? String(v) : "";
 }
 
-function CustomTooltip({ active, label, payload }: any) {
+function CustomTooltip({ active, label, payload }: { active?: boolean; label?: string; payload?: { dataKey: string; value: number }[] }) {
   if (!active || !payload?.length) return null;
-  const potential = payload.find((p: any) => p.dataKey === "potentialAmount")?.value ?? 0;
-  const collected = payload.find((p: any) => p.dataKey === "collectedAmount")?.value ?? 0;
+  const potential = payload.find((p) => p.dataKey === "potentialAmount")?.value ?? 0;
+  const collected = payload.find((p) => p.dataKey === "collectedAmount")?.value ?? 0;
   const gap = potential - collected;
   const pct = potential > 0 ? Math.round((collected / potential) * 100) : 0;
 

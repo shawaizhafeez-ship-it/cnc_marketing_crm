@@ -75,6 +75,7 @@ async function requireUser() {
   return { supabase, userId: user.id };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function requireAdmin() {
   const { supabase, userId } = await requireUser();
   const { data: profile } = await supabase
