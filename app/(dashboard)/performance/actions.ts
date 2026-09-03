@@ -17,6 +17,7 @@ export type CertDetail = {
   company: string;
   contactPerson: string;
   expiry: string;
+  item: string;
   renewalAmount: number;
   renewed: boolean;
 };
@@ -72,6 +73,7 @@ export async function getOperationPerformance(): Promise<MonthPerformance[]> {
     company: string;
     contactPerson: string;
     expiry: string;
+    item: string;
     expiryYear: number;
     renewalAmount: number;
   };
@@ -98,6 +100,7 @@ export async function getOperationPerformance(): Promise<MonthPerformance[]> {
       company: row[0]?.trim() ?? "",
       contactPerson: row[6]?.trim() ?? "",
       expiry: expiryRaw,
+      item: row[2]?.trim() || "Unknown",
       expiryYear: parseInt(yyyy),
       renewalAmount: safeAmount,
     });
@@ -112,12 +115,12 @@ export async function getOperationPerformance(): Promise<MonthPerformance[]> {
     const monthIdx = parseInt(mm, 10) - 1;
 
     let collectedAmount = 0;
-    const certDetails: CertDetail[] = certs.map(({ certNo, company, contactPerson, expiry, expiryYear, renewalAmount }) => {
+    const certDetails: CertDetail[] = certs.map(({ certNo, company, contactPerson, expiry, item, expiryYear, renewalAmount }) => {
       const records = renewalsByCert.get(certNo) ?? [];
       const match = records.find((r) => r.year >= expiryYear);
       const renewed = !!match;
       if (renewed) collectedAmount += match!.amount;
-      return { certNo, company, contactPerson, expiry, renewalAmount: renewalAmount * 1000, renewed };
+      return { certNo, company, contactPerson, expiry, item, renewalAmount: renewalAmount * 1000, renewed };
     });
 
     const renewed = certDetails.filter((c) => c.renewed).length;
@@ -164,10 +167,11 @@ export async function getOperationPerformance(): Promise<MonthPerformance[]> {
 export type MonthLeads = {
   monthKey: string;
   label: string;
-  total: number;    // all non-Renewal rows
-  closed: number;   // paid
-  open: number;     // not paid
-  rate: number;     // conversion % (closed/total)
+  total: number;
+  closed: number;
+  open: number;
+  rate: number;
+  byItem: Record<string, { total: number; closed: number }>;
 };
 
 const MONTH_NUM_MAP: Record<string, string> = {
@@ -196,36 +200,56 @@ function parseMonthYear(raw: string): { key: string; label: string } | null {
 export async function getLeadsPerformance(): Promise<MonthLeads[]> {
   const sheets = google.sheets({ version: "v4", auth: makeAuth() });
 
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: "Renewal Status!A:R",
-  });
+  const [renewalRes, listRes] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: "Renewal Status!A:R" }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: "List Cleaned!A:C" }),
+  ]);
 
-  const rows = (res.data.values ?? []).slice(1);
+  // Build certNo → item map from List Cleaned
+  const itemByCert = new Map<string, string>();
+  for (const row of (listRes.data.values ?? []).slice(1)) {
+    const certNo = row[1]?.trim();
+    const item   = row[2]?.trim() || "Unknown";
+    if (certNo) itemByCert.set(certNo, item);
+  }
 
-  const byMonth = new Map<string, { label: string; total: number; closed: number }>();
+  const rows = (renewalRes.data.values ?? []).slice(1);
+
+  const byMonth = new Map<string, {
+    label: string;
+    total: number;
+    closed: number;
+    byItem: Record<string, { total: number; closed: number }>;
+  }>();
 
   for (const row of rows) {
-    const type = row[3]?.trim();
+    const type          = row[3]?.trim();
+    const certNo        = row[8]?.trim();
     const paymentStatus = row[14]?.trim();
-    const monthYearRaw = row[15]?.trim() ?? "";
+    const monthYearRaw  = row[15]?.trim() ?? "";
 
-    // Exclude renewals
     if (type === "Renewal") continue;
 
     const parsed = parseMonthYear(monthYearRaw);
     if (!parsed) continue;
 
     const { key, label } = parsed;
-    if (!byMonth.has(key)) byMonth.set(key, { label, total: 0, closed: 0 });
+    if (!byMonth.has(key)) byMonth.set(key, { label, total: 0, closed: 0, byItem: {} });
 
-    const entry = byMonth.get(key)!;
+    const entry  = byMonth.get(key)!;
+    const isPaid = paymentStatus === "Paid";
+    const item   = (certNo && itemByCert.get(certNo)) || "Unknown";
+
     entry.total += 1;
-    if (paymentStatus === "Paid") entry.closed += 1;
+    if (isPaid) entry.closed += 1;
+
+    if (!entry.byItem[item]) entry.byItem[item] = { total: 0, closed: 0 };
+    entry.byItem[item].total += 1;
+    if (isPaid) entry.byItem[item].closed += 1;
   }
 
   const results: MonthLeads[] = [];
-  for (const [key, { label, total, closed }] of byMonth) {
+  for (const [key, { label, total, closed, byItem }] of byMonth) {
     results.push({
       monthKey: key,
       label,
@@ -233,6 +257,7 @@ export async function getLeadsPerformance(): Promise<MonthLeads[]> {
       closed,
       open: total - closed,
       rate: total > 0 ? Math.round((closed / total) * 100) : 0,
+      byItem,
     });
   }
 

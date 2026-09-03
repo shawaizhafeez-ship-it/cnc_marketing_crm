@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { RenewalChart } from "@/components/performance/renewal-chart";
 import { RevenueChart } from "@/components/performance/revenue-chart";
 import { LeadsChart } from "@/components/performance/leads-chart";
+import { ExploreChart } from "@/components/performance/explore-chart";
 import { BreakdownTable } from "@/components/performance/breakdown-table";
 import { getOperationPerformance, getLeadsPerformance } from "@/app/(dashboard)/performance/actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -82,6 +83,18 @@ export default async function PerformancePage() {
           ) : (
             <LeadsChart data={leadsData} />
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Explore</CardTitle>
+          <CardDescription>
+            Select any metric and breakdown dimension to build a custom view.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ExploreChart data={data} leadsData={leadsData} />
         </CardContent>
       </Card>
 
