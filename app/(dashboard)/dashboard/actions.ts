@@ -45,6 +45,7 @@ async function requireAuthenticatedUser() {
   return { supabase, profile };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function requireAdminUser() {
   const { profile } = await requireAuthenticatedUser();
 
