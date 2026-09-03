@@ -13,6 +13,7 @@ import {
   ScrollText,
   Settings,
   Shield,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/shared/brand-logo";
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/marketing/campaigns", label: "Marketing Campaigns", icon: Megaphone },
   { href: "/marketing/cold-email", label: "Cold Email", icon: Mail },
   { href: "/manual-email", label: "Manual Email", icon: PenLine },
+  { href: "/performance", label: "Operation Performance", icon: TrendingUp },
   { href: "/logs", label: "Logs", icon: ScrollText },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
