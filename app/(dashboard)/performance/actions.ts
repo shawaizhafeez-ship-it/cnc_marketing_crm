@@ -182,7 +182,7 @@ const MONTH_NUM_MAP: Record<string, string> = {
   // abbreviations
   jan: "01", feb: "02", mar: "03", apr: "04",
   jun: "06", jul: "07", aug: "08",
-  sep: "09", oct: "10", nov: "11", dec: "12",
+  sep: "09", sept: "09", oct: "10", nov: "11", dec: "12",
 };
 
 function parseMonthYear(raw: string): { key: string; label: string } | null {
